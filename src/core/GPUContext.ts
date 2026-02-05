@@ -8,7 +8,7 @@ export class GPUContext {
 
   private onResizeCallbacks: ((aspect: number) => void)[] = [];
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): GPUContext {
     if (!this.instance) {
@@ -60,6 +60,7 @@ export class GPUContext {
     this.context.configure({
       device: this.device,
       format: this.format,
+      alphaMode: "opaque" // For no transparency, change if need transparency.
     });
 
     // 3. Notify all subscribers (Camera)
