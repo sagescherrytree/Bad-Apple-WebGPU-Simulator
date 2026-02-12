@@ -1,3 +1,5 @@
+// Class to create a rectangle full screen to render each frame of the video onto.
+
 export class FullscreenVideoPass {
     private pipeline: GPURenderPipeline;
     private bindGroup: GPUBindGroup;
@@ -8,7 +10,6 @@ export class FullscreenVideoPass {
         videoTexture: GPUTexture,
         sampler: GPUSampler
     ) {
-        // --- Shader modules ---
         const vertexModule = device.createShaderModule({
             label: "FullscreenVideoVertexShader",
             code: `
@@ -56,7 +57,7 @@ export class FullscreenVideoPass {
                 }`
         });
 
-        // --- Render pipeline ---
+        // Minimalistic rendering pipeline.
         this.pipeline = device.createRenderPipeline({
             label: "FullscreenVideoPipeline",
             layout: "auto",
@@ -74,7 +75,7 @@ export class FullscreenVideoPass {
             }
         });
 
-        // --- Bind group ---
+        // Bind group.
         this.bindGroup = device.createBindGroup({
             label: "FullscreenVideoBindGroup",
             layout: this.pipeline.getBindGroupLayout(0),

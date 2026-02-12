@@ -3,8 +3,12 @@ import Stats from 'stats.js';
 import { GPUContext } from './core/GPUContext.js';
 import { FrameLoop } from './core/frameLoop.js';
 import { VideoSource } from './video/videoSource.js';
+import { VideoThresholdPass } from './video/videoThresholdPass.js';
 // import { ClearPass } from "./render/clearPass";
 import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
+
+// Rendering pipeline:
+// video -> videoThresholdPass (binaryTexture) -> fullScreenBinaryPass -> screen o/p.
 
 // Initialise GPU Context in main.ts because all we use is video input.
 async function main() {
@@ -32,13 +36,33 @@ async function main() {
         video.sampler
     );
 
+    // Take in video threshold pass to convert to binary texture.
+    const thresholdPass = new VideoThresholdPass(
+        gpu.device,
+        video.texture,
+        video.sampler,
+        480, // Width.
+        360 // Height.
+    );
+
+    // Debug fullscreen pass to verify that binary texture working.
+    const binaryDebugPass = new FullscreenVideoPass(
+        gpu.device,
+        gpu.format,
+        thresholdPass.binaryTexture,
+        video.sampler
+    );
+
+    // In frame loop, update threshold pass as well.
     const frameLoop = new FrameLoop(
         (dt) => {
             time += dt;
             video.update(gpu.device);
+            thresholdPass.dispatch(gpu.device);
         },
         () => {
-            videoPass.render(gpu.device, gpu.context);
+            binaryDebugPass.render(gpu.device, gpu.context);
+            // videoPass.render(gpu.device, gpu.context);
         }
     );
 
