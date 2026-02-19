@@ -101,7 +101,9 @@ async function main() {
     const vectorFieldDebugPass = new VectorFieldDebug(
         gpu.device,
         vectorTextureA,
-        gpu.format
+        gpu.format,
+        canvasWidth,
+        canvasHeight
     );
 
     // In frame loop, update threshold pass as well.
@@ -126,7 +128,7 @@ async function main() {
             //jfaPass.dispatch(gpu.device, WIDTH, HEIGHT, vectorTextureA, vectorTextureB);
         },
         () => {
-            vectorFieldDebugPass.render(gpu.device, gpu.context);
+            vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
             //binaryDebugPass.render(gpu.device, gpu.context);
             //videoPass.render(gpu.device, gpu.context);
         }

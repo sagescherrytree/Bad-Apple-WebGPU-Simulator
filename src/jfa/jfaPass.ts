@@ -71,15 +71,26 @@ export class JumpFloodAlgorithm {
 export class VectorFieldDebug {
     device: GPUDevice;
     vectorTexture: GPUTexture;
+    // Test, add back in canvas size buffer.
+    canvasSizeBuffer: GPUBuffer;
     pipeline: GPURenderPipeline;
 
-    constructor(device: GPUDevice, vectorTexture: GPUTexture, format: GPUTextureFormat) {
+    constructor(device: GPUDevice, vectorTexture: GPUTexture, format: GPUTextureFormat, width: number, height: number) {
         this.device = device;
         this.vectorTexture = vectorTexture;
+
+        // Initialise canvas size buffer.
+        this.canvasSizeBuffer = device.createBuffer({
+            size: 8,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        device.queue.writeBuffer(this.canvasSizeBuffer, 0, new Float32Array([width, height]));
+
         this.pipeline = this.createPipeline(device, format);
     }
 
-    createPipeline(device: GPUDevice, format: GPUTextureFormat) {
+    createPipeline(device: GPUDevice, format: GPUTextureFormat): GPURenderPipeline {
         // Simple full-screen quad rendering pipeline
         const pipeline = device.createRenderPipeline({
             layout: "auto",
@@ -122,12 +133,21 @@ export class VectorFieldDebug {
             fragment: {
                 module: device.createShaderModule({
                     code: `
-                    @group(0) @binding(0) var vectorTex: texture_2d<f32>; 
+                    @group(0) @binding(0) var vectorTex: texture_2d<f32>;
+                    @group(0) @binding(1) var<uniform> canvasSize: vec2<f32>;
+
                     @fragment fn main(@builtin(position) fragCoord: vec4<f32>) 
                     -> @location(0) vec4<f32> { 
-                        let texDims = textureDimensions(vectorTex); // vec2<u32> 
-                        let texDimsF = vec2<f32>(texDims); // Map to screen. 
-                        let uvTex = vec2<i32>(fragCoord.xy * texDimsF / vec2<f32>(textureDimensions(vectorTex))); 
+
+                        let texDims = textureDimensions(vectorTex);
+                        let texDimsF = vec2<f32>(texDims);
+
+                        // Normalize fragCoord across full canvas
+                        let uv = fragCoord.xy / canvasSize;
+
+                        // Map to vector texture resolution
+                        let uvTex = vec2<i32>(uv * texDimsF);
+
                         let v = textureLoad(vectorTex, uvTex, 0).xy; 
                         let color = vec2<f32>(v.x / texDimsF.x, v.y / texDimsF.y); 
                         return vec4<f32>(color, 0.0, 1.0); 
@@ -141,7 +161,9 @@ export class VectorFieldDebug {
         return pipeline;
     }
 
-    render(device: GPUDevice, context: GPUCanvasContext) {
+    render(device: GPUDevice, context: GPUCanvasContext, width: number, height: number) {
+        device.queue.writeBuffer(this.canvasSizeBuffer, 0, new Float32Array([width, height]));
+
         const encoder = device.createCommandEncoder();
         const textureView = context.getCurrentTexture().createView();
 
@@ -155,6 +177,7 @@ export class VectorFieldDebug {
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: this.vectorTexture.createView() },
+                { binding: 1, resource: { buffer: this.canvasSizeBuffer } }
             ]
         });
 
