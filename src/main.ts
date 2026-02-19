@@ -129,8 +129,8 @@ async function main() {
         },
         () => {
             vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
-            //binaryDebugPass.render(gpu.device, gpu.context);
-            //videoPass.render(gpu.device, gpu.context);
+            // binaryDebugPass.render(gpu.device, gpu.context);
+            // videoPass.render(gpu.device, gpu.context);
         }
     );
 
