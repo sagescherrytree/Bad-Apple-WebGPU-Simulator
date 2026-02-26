@@ -7,6 +7,8 @@ import { VideoThresholdPass } from './video/videoThresholdPass.js';
 import { InitVectorSeedPass } from './jfa/initVectorSeed.js';
 import { JumpFloodAlgorithm } from './jfa/jfaPass.js';
 import { VectorFieldDebug } from './jfa/jfaPass.js';
+import { VelocityGrid } from './simulations/fluid/velocityGrid.js';
+import { ParticleSystem } from './simulations/particleSystem.js';
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
 
@@ -98,13 +100,20 @@ async function main() {
     const canvasHeight = canvas.height;
 
     // Debug pass for vector field.
-    const vectorFieldDebugPass = new VectorFieldDebug(
-        gpu.device,
-        vectorTextureA,
-        gpu.format,
-        canvasWidth,
-        canvasHeight
-    );
+    // const vectorFieldDebugPass = new VectorFieldDebug(
+    //     gpu.device,
+    //     vectorTextureA,
+    //     gpu.format,
+    //     canvasWidth,
+    //     canvasHeight
+    // );
+
+    // Velocity grid for fluid sim.
+    const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT);
+
+    const NUM_PARTICLES = 10000;
+    // Particle system.
+    const particleSystem = new ParticleSystem(gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture());
 
     // In frame loop, update threshold pass as well.
     const frameLoop = new FrameLoop(
@@ -124,11 +133,14 @@ async function main() {
             }
 
             const finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
-            vectorFieldDebugPass.vectorTexture = finalTexture;
+            velocityGrid.step(gpu.device, dt, finalTexture);
+            //vectorFieldDebugPass.vectorTexture = finalTexture;
+            particleSystem.step(gpu.device);
             //jfaPass.dispatch(gpu.device, WIDTH, HEIGHT, vectorTextureA, vectorTextureB);
         },
         () => {
-            vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
+            //vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
+            particleSystem.render(gpu.device, gpu.context);
             // binaryDebugPass.render(gpu.device, gpu.context);
             // videoPass.render(gpu.device, gpu.context);
         }
