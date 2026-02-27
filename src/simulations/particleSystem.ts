@@ -89,7 +89,16 @@ export class ParticleSystem {
         device.queue.writeBuffer(this.particlesBuffer, 0, initialData);
     }
 
-    step(device: GPUDevice) {
+    step(device: GPUDevice, velocityTexture: GPUTexture) {
+        // Recreate the bind group with the current velocity texture
+        this.particlesBindGroup = device.createBindGroup({
+            layout: this.particlesPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: velocityTexture.createView() },
+            ],
+        });
+
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(this.particlesPipeline);

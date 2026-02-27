@@ -27,6 +27,8 @@ fn main(@builtin(global_invocation_id) id : vec3<u32>) {
     let force = textureLoad(forceTex, coord);
 
     let newVel = vel.xy + force.xy * params.forceScale * params.dt;
+    
+    // let newVel = vec2<f32>(1.0, 0.0);
 
     textureStore(velocityOut, coord, vec4<f32>(newVel, 0.0, 0.0));
 }
