@@ -13,7 +13,7 @@ export class ParticleSystem {
 
     private numParticles: number;
 
-    constructor(device: GPUDevice, numParticles: number, velocityTexture: GPUTexture) {
+    constructor(device: GPUDevice, numParticles: number, velocityTexture: GPUTexture, format: GPUTextureFormat) {
         this.numParticles = numParticles;
 
         // Set up particles buffer.
@@ -71,7 +71,7 @@ export class ParticleSystem {
             fragment: {
                 module: device.createShaderModule({ code: particleFragShader }),
                 entryPoint: "main",
-                targets: [{ format: "bgra8unorm" }],
+                targets: [{ format: format }]
             },
             primitive: {
                 topology: "point-list",
@@ -128,7 +128,7 @@ export class ParticleSystem {
                 {
                     view: textureView,
                     clearValue: { r: 0, g: 0, b: 0, a: 1 },
-                    loadOp: "clear",
+                    loadOp: "load",
                     storeOp: "store",
                 },
             ],

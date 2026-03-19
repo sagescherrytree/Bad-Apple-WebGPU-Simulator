@@ -56,7 +56,7 @@ export class VelocityGrid {
         const encoder = device.createCommandEncoder();
 
         // Update uniform buffer
-        const forceScale = 50.0;
+        const forceScale = 1.0;
 
         const simParams = new Float32Array(4);
 

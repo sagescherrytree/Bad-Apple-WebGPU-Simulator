@@ -8,7 +8,8 @@ import { InitVectorSeedPass } from './jfa/initVectorSeed.js';
 import { JumpFloodAlgorithm } from './jfa/jfaPass.js';
 // import { VectorFieldDebug } from './jfa/jfaPass.js';
 import { VelocityGrid } from './simulations/fluid/velocityGrid.js';
-//import { VelocityDebugPass } from './simulations/fluid/velocityGrid.js';
+import { JfaToForcePass } from './simulations/fluid/jfaToFluid.js';
+import { VelocityDebugPass } from './simulations/fluid/velocityGrid.js';
 import { ParticleSystem } from './simulations/particleSystem.js';
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
@@ -109,13 +110,18 @@ async function main() {
     //     canvasHeight
     // );
 
+    // Convert JFA to force.
+    const jfaToForce = new JfaToForcePass(gpu.device, WIDTH, HEIGHT);
+
     // Velocity grid for fluid sim.
     const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT);
-    //const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
+    const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
 
     const NUM_PARTICLES = 10000;
     // Particle system.
-    const particleSystem = new ParticleSystem(gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture());
+    const particleSystem = new ParticleSystem(
+        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), gpu.format  // add gpu.format
+    );
 
     // In frame loop, update threshold pass as well.
     const frameLoop = new FrameLoop(
@@ -135,6 +141,7 @@ async function main() {
             }
 
             const finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
+            jfaToForce.dispatch(gpu.device, finalTexture, WIDTH, HEIGHT);
             velocityGrid.step(gpu.device, dt, finalTexture);
             //vectorFieldDebugPass.vectorTexture = finalTexture;
             particleSystem.step(gpu.device, velocityGrid.getVelocityTexture());
@@ -143,7 +150,7 @@ async function main() {
         () => {
             const view = gpu.context.getCurrentTexture().createView();
             //vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
-            //velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
+            velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
             particleSystem.render(gpu.device, view);
             // binaryDebugPass.render(gpu.device, gpu.context);
             // videoPass.render(gpu.device, gpu.context);
