@@ -90,7 +90,7 @@ export class ParticleSystem {
     }
 
     step(device: GPUDevice, velocityTexture: GPUTexture) {
-        // Recreate the bind group with the current velocity texture
+        // Reuse buffer; update bind group with current velocity texture
         this.particlesBindGroup = device.createBindGroup({
             layout: this.particlesPipeline.getBindGroupLayout(0),
             entries: [
@@ -99,19 +99,29 @@ export class ParticleSystem {
             ],
         });
 
+        this.renderBindGroup = device.createBindGroup({
+            layout: this.renderPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+            ],
+        });
+
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(this.particlesPipeline);
         pass.setBindGroup(0, this.particlesBindGroup);
-        pass.dispatchWorkgroups(Math.ceil(this.numParticles / 64));
-        pass.end();
 
+        // Dispatch enough threads for all particles
+        const workgroups = Math.ceil(this.numParticles / 64);
+        pass.dispatchWorkgroups(workgroups);
+
+        pass.end();
         device.queue.submit([encoder.finish()]);
     }
 
-    render(device: GPUDevice, context: GPUCanvasContext) {
+    render(device: GPUDevice, view: GPUTextureView) {
         const encoder = device.createCommandEncoder();
-        const textureView = context.getCurrentTexture().createView();
+        const textureView = view;
 
         const renderPass = encoder.beginRenderPass({
             colorAttachments: [

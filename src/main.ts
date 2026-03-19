@@ -8,7 +8,7 @@ import { InitVectorSeedPass } from './jfa/initVectorSeed.js';
 import { JumpFloodAlgorithm } from './jfa/jfaPass.js';
 // import { VectorFieldDebug } from './jfa/jfaPass.js';
 import { VelocityGrid } from './simulations/fluid/velocityGrid.js';
-import { VelocityDebugPass } from './simulations/fluid/velocityGrid.js';
+//import { VelocityDebugPass } from './simulations/fluid/velocityGrid.js';
 import { ParticleSystem } from './simulations/particleSystem.js';
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
@@ -111,7 +111,7 @@ async function main() {
 
     // Velocity grid for fluid sim.
     const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT);
-    const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
+    //const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
 
     const NUM_PARTICLES = 10000;
     // Particle system.
@@ -141,9 +141,10 @@ async function main() {
             //jfaPass.dispatch(gpu.device, WIDTH, HEIGHT, vectorTextureA, vectorTextureB);
         },
         () => {
+            const view = gpu.context.getCurrentTexture().createView();
             //vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
-            velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
-            particleSystem.render(gpu.device, gpu.context);
+            //velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
+            particleSystem.render(gpu.device, view);
             // binaryDebugPass.render(gpu.device, gpu.context);
             // videoPass.render(gpu.device, gpu.context);
         }
