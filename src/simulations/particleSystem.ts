@@ -13,7 +13,7 @@ export class ParticleSystem {
 
     private numParticles: number;
 
-    constructor(device: GPUDevice, numParticles: number, velocityTexture: GPUTexture, format: GPUTextureFormat) {
+    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat) {
         this.numParticles = numParticles;
 
         // Set up particles buffer.
@@ -36,7 +36,8 @@ export class ParticleSystem {
             layout: this.particlesPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
-                { binding: 1, resource: velocityTexture.createView() },
+                { binding: 1, resource: forceTexture.createView() },
+                { binding: 2, resource: binaryTexture.createView() },  // NEW
             ],
         });
 
@@ -71,10 +72,10 @@ export class ParticleSystem {
             fragment: {
                 module: device.createShaderModule({ code: particleFragShader }),
                 entryPoint: "main",
-                targets: [{ format: format }]
+                targets: [{ format: format }],
             },
             primitive: {
-                topology: "point-list",
+                topology: "triangle-list",  // was "point-list"
             },
         });
 
@@ -89,13 +90,14 @@ export class ParticleSystem {
         device.queue.writeBuffer(this.particlesBuffer, 0, initialData);
     }
 
-    step(device: GPUDevice, velocityTexture: GPUTexture) {
+    step(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
         // Reuse buffer; update bind group with current velocity texture
         this.particlesBindGroup = device.createBindGroup({
             layout: this.particlesPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
-                { binding: 1, resource: velocityTexture.createView() },
+                { binding: 1, resource: forceTexture.createView() },
+                { binding: 2, resource: binaryTexture.createView() },
             ],
         });
 
@@ -136,7 +138,7 @@ export class ParticleSystem {
 
         renderPass.setPipeline(this.renderPipeline);
         renderPass.setBindGroup(0, this.renderBindGroup);
-        renderPass.draw(this.numParticles, 1, 0, 0);
+        renderPass.draw(this.numParticles * 6, 1, 0, 0);
 
         renderPass.end();
         device.queue.submit([encoder.finish()]);
