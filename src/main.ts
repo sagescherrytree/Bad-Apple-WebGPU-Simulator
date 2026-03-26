@@ -142,7 +142,7 @@ async function main() {
 
             const finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
             jfaToForce.dispatch(gpu.device, finalTexture, WIDTH, HEIGHT);
-            velocityGrid.step(gpu.device, dt, finalTexture);
+            velocityGrid.step(gpu.device, dt, jfaToForce.forceTexture);
             //vectorFieldDebugPass.vectorTexture = finalTexture;
             particleSystem.step(gpu.device, jfaToForce.forceTexture, thresholdPass.binaryTexture);
             //jfaPass.dispatch(gpu.device, WIDTH, HEIGHT, vectorTextureA, vectorTextureB);

@@ -14,7 +14,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let len = length(dir);
     if (len > 0.5) {
         force = dir / len;
-        // Flip Y so force direction matches NDC/screen space
         force.y = -force.y;
     }
 

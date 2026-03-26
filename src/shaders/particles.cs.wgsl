@@ -23,11 +23,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let texSize = vec2<f32>(textureDimensions(forceTex));
     let texSizeI = vec2<i32>(texSize);
 
-    // Sample force at current position directly from JFA force field
+    // Sample force at current position directly from JFA force field.
     let pixel = clamp(vec2<i32>(p.pos * texSize), vec2<i32>(0), texSizeI - vec2<i32>(1));
     let force = textureLoad(forceTex, pixel, 0).xy;
 
-    // Move particle along force field
+    // Move particle along force field.
     let velocityScale = 0.003;
     p.pos += force * velocityScale;
 
