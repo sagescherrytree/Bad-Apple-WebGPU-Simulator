@@ -3,9 +3,17 @@ struct Particle {
     vel: vec2<f32>,
 };
 
+struct FluidSimParams {
+    dt: f32,
+    forceScale: f32,
+    pressureIterations: f32,
+    maxVelocityDisplay: f32,
+};
+
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
 @group(0) @binding(1) var forceTex  : texture_2d<f32>;   // JFA force vectors
 @group(0) @binding(2) var binaryTex : texture_2d<f32>;   // binary texture for silhouette (white = outside, black = inside)
+@group(0) @binding(3) var<uniform> fluidParams : FluidSimParams;
 
 fn hash(n: u32) -> f32 {
     var x = n;
@@ -28,7 +36,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let force = textureLoad(forceTex, pixel, 0).xy;
 
     // Move particle along force field.
-    let velocityScale = 0.003;
+    let velocityScale = fluidParams.forceScale * 0.003;
     p.pos += force * velocityScale;
 
     // Check if particle has left bounds or landed on a black pixel (inside silhouette)

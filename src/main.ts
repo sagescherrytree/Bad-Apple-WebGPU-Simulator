@@ -1,4 +1,5 @@
 import Stats from 'stats.js';
+import { GUI } from 'dat.gui';
 
 import { GPUContext } from './core/GPUContext.js';
 import { FrameLoop } from './core/frameLoop.js';
@@ -29,6 +30,7 @@ async function main() {
     let time = 0;
 
     const stats = new Stats();
+    stats.showPanel(0);
     document.body.appendChild(stats.dom);
 
     const video = new VideoSource(
@@ -44,6 +46,23 @@ async function main() {
     // Default audio settings.
     audio.loop = true;
     audio.volume = 0.5;
+
+    const fluidParams = {
+        dt: 0.016,
+        forceScale: 1.0,
+        pressureIterations: 20,
+        maxVelocityDisplay: 5.0
+    };
+
+    const gui = new GUI();
+    const fluidFolder = gui.addFolder("Fluid Simulation");
+
+    fluidFolder.add(fluidParams, "dt", 0.001, 0.05, 0.001);
+    fluidFolder.add(fluidParams, "forceScale", 0.0, 10.0, 0.1);
+    fluidFolder.add(fluidParams, "pressureIterations", 1, 100, 1);
+    fluidFolder.add(fluidParams, "maxVelocityDisplay", 0.1, 20.0, 0.1);
+
+    fluidFolder.open();
 
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
@@ -118,16 +137,16 @@ async function main() {
     // );
 
     // Convert JFA to force.
-    const jfaToForce = new JfaToForcePass(gpu.device, WIDTH, HEIGHT);
+    const jfaToForce = new JfaToForcePass(gpu.device, WIDTH, HEIGHT, fluidParams.forceScale);
 
     // Velocity grid for fluid sim.
-    const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT);
+    const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT, fluidParams);
     //const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
 
     const NUM_PARTICLES = 10000;
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, jfaToForce.forceTexture, thresholdPass.binaryTexture, gpu.format  // add gpu.format
+        gpu.device, NUM_PARTICLES, jfaToForce.forceTexture, thresholdPass.binaryTexture, gpu.format, fluidParams
     );
 
     // In frame loop, update threshold pass as well.

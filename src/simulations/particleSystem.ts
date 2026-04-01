@@ -2,6 +2,18 @@ import particleShader from "../shaders/particles.cs.wgsl?raw";
 import particleVertShader from "../shaders/particles.vert.wgsl?raw";
 import particleFragShader from "../shaders/particles.frag.wgsl?raw";
 
+interface FluidParams {
+    dt: number;
+    forceScale: number;
+    pressureIterations: number;
+    maxVelocityDisplay: number;
+}
+
+// Particle parameters.
+export interface ParticleParams {
+    velocityScale: number;
+}
+
 export class ParticleSystem {
     particlesBuffer: GPUBuffer;
     particlesPipeline: GPUComputePipeline;
@@ -13,14 +25,33 @@ export class ParticleSystem {
 
     private numParticles: number;
 
-    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat) {
+    // Accept params from fluid simulation.
+    private fluidParams: FluidParams;
+    // Buffer for fluid params.
+    private fluidParamsBuffer: GPUBuffer;
+
+    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams) {
         this.numParticles = numParticles;
+
+        this.fluidParams = fluidParams || {
+            dt: 0.016,
+            forceScale: 1.0,
+            pressureIterations: 20,
+            maxVelocityDisplay: 5.0
+        };
 
         // Set up particles buffer.
         this.particlesBuffer = device.createBuffer({
             label: "ParticlesBuffer",
             size: numParticles * 4 * 4, // 2 vec2<f32> per particle.
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC | GPUBufferUsage.VERTEX,
+        });
+
+        // Set up fluid params buffer.
+        this.fluidParamsBuffer = device.createBuffer({
+            label: "FluidParamsBuffer",
+            size: 16 * 4, // 4 float values (dt, forceScale, pressureIterations, maxVelocityDisplay).
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
         // Le compute pipeline.
@@ -37,7 +68,8 @@ export class ParticleSystem {
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
                 { binding: 1, resource: forceTexture.createView() },
-                { binding: 2, resource: binaryTexture.createView() },  // NEW
+                { binding: 2, resource: binaryTexture.createView() },
+                { binding: 3, resource: { buffer: this.fluidParamsBuffer } },
             ],
         });
 
@@ -88,9 +120,28 @@ export class ParticleSystem {
             initialData[i * 4 + 3] = 0; // vel.y
         }
         device.queue.writeBuffer(this.particlesBuffer, 0, initialData);
+
+        // Initialize fluid sim params buffer.
+        const fluidSimParams = new Float32Array(4);
+
+        fluidSimParams[0] = this.fluidParams.dt;
+        fluidSimParams[1] = this.fluidParams.forceScale;
+        fluidSimParams[2] = this.fluidParams.pressureIterations;
+        fluidSimParams[3] = this.fluidParams.maxVelocityDisplay;
+
+        device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
     }
 
     step(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
+        // Rewrite updated values for fluid sim params buffer.
+        const fluidSimParams = new Float32Array(4);
+
+        fluidSimParams[0] = this.fluidParams.dt;
+        fluidSimParams[1] = this.fluidParams.forceScale;
+        fluidSimParams[2] = this.fluidParams.pressureIterations;
+        fluidSimParams[3] = this.fluidParams.maxVelocityDisplay;
+
+        device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
         // Reuse buffer; update bind group with current velocity texture
         this.particlesBindGroup = device.createBindGroup({
             layout: this.particlesPipeline.getBindGroupLayout(0),
@@ -98,6 +149,7 @@ export class ParticleSystem {
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
                 { binding: 1, resource: forceTexture.createView() },
                 { binding: 2, resource: binaryTexture.createView() },
+                { binding: 3, resource: { buffer: this.fluidParamsBuffer } },
             ],
         });
 

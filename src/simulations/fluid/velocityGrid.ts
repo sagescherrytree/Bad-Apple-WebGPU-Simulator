@@ -7,9 +7,19 @@ import gradientShader from "../../shaders/fluid/subtractGradient.cs.wgsl?raw";
 const WORKGROUP_SIZE = 8;
 const PRESSURE_ITERS = 20;
 
+export interface FluidParams {
+    dt: number;
+    forceScale: number;
+    pressureIterations: number;
+    maxVelocityDisplay: number;
+}
+
 export class VelocityGrid {
     width: number;
     height: number;
+
+    // Add toggleable params.
+    params: FluidParams;
 
     // The textures.
     private velocityA: GPUTexture;
@@ -28,7 +38,7 @@ export class VelocityGrid {
     private pressurePipeline: GPUComputePipeline;
     private gradientPipeline: GPUComputePipeline;
 
-    constructor(device: GPUDevice, width: number, height: number) {
+    constructor(device: GPUDevice, width: number, height: number, simParams?: FluidParams) {
         this.width = width;
         this.height = height;
 
@@ -38,6 +48,13 @@ export class VelocityGrid {
         this.pressureA = this.createTexture(device, "PressureA");
         this.pressureB = this.createTexture(device, "PressureB");
         this.divergence = this.createTexture(device, "Divergence");
+
+        this.params = simParams || {
+            dt: 0.016,
+            forceScale: 1.0,
+            pressureIterations: PRESSURE_ITERS,
+            maxVelocityDisplay: 5.0
+        };
 
         this.simUniformBuffer = device.createBuffer({
             size: 4 * 4, // dt, width, height, padding
@@ -53,15 +70,13 @@ export class VelocityGrid {
     }
 
     step(device: GPUDevice, dt: number, externalForceTex: GPUTexture) {
+        this.params.dt = dt;
         const encoder = device.createCommandEncoder();
-
-        // Update uniform buffer
-        const forceScale = 1.0;
 
         const simParams = new Float32Array(4);
 
-        simParams[0] = dt;
-        simParams[1] = forceScale;
+        simParams[0] = this.params.dt;
+        simParams[1] = this.params.forceScale;
         simParams[2] = this.width;
         simParams[3] = this.height;
 
@@ -102,7 +117,7 @@ export class VelocityGrid {
         );
 
         // Solve pressure.
-        for (let i = 0; i < PRESSURE_ITERS; i++) {
+        for (let i = 0; i < this.params.pressureIterations; i++) {
             this.runComputePass(
                 device,
                 encoder,
@@ -141,7 +156,6 @@ export class VelocityGrid {
         texOut: GPUTexture,
         extraTex: GPUTexture
     ) {
-        // Bind group entries must correctly match the shader bindings:
         // 0: velocityIn, 1: velocityOut, 2: force/divergence/pressure, 3: uniform buffer
         const bindGroup = device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),
@@ -170,7 +184,6 @@ export class VelocityGrid {
         texIn: GPUTexture,
         texOut: GPUTexture
     ) {
-        // Bind group entries must correctly match the shader bindings:
         // 0: velocityIn, 1: velocityOut, 2: uniform buffer
         const bindGroup = device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),
@@ -233,7 +246,6 @@ export class VelocityDebugPass {
 
     constructor(device: GPUDevice, format: GPUTextureFormat) {
 
-        // ---------- Vertex ----------
         const vertModule = device.createShaderModule({
             code: `
                 struct VSOut {
@@ -266,7 +278,6 @@ export class VelocityDebugPass {
             `
         });
 
-        // ---------- Fragment ----------
         const fragModule = device.createShaderModule({
             code: `
                 @group(0) @binding(0)
@@ -315,7 +326,6 @@ export class VelocityDebugPass {
             `
         });
 
-        // ---------- Bind Group Layout ----------
         const bindGroupLayout = device.createBindGroupLayout({
             entries: [
                 {
