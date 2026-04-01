@@ -38,6 +38,13 @@ async function main() {
         "badApple.mp4"
     );
 
+    // Audio.
+    const audio = new Audio("badAppleAudio.mp3");
+
+    // Default audio settings.
+    audio.loop = true;
+    audio.volume = 0.5;
+
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
     //     gpu.device,
@@ -157,6 +164,17 @@ async function main() {
         }
     );
 
+    // Sync audio to video.
+    function syncAudioToVideo() {
+        const drift = Math.abs(audio.currentTime - video.video.currentTime);
+
+        if (drift > 0.05) { // 50 ms.
+            audio.currentTime = video.video.currentTime;
+        }
+
+        requestAnimationFrame(syncAudioToVideo);
+    }
+
     // A start button XD.
     const startButton = document.createElement("button");
     startButton.textContent = "Click to Start Video";
@@ -170,8 +188,15 @@ async function main() {
 
     startButton.addEventListener("click", async () => {
         document.body.removeChild(startButton);
-        await video.video.play(); // This now works
-        frameLoop.start();        // Start rendering loop
+        video.video.currentTime = 0;
+        audio.currentTime = 0;
+
+        await Promise.all([
+            video.video.play(),
+            audio.play()
+        ]);
+        syncAudioToVideo();
+        frameLoop.start();
     }, { once: true });
 }
 
