@@ -11,7 +11,6 @@ export interface FluidParams {
     dt: number;
     forceScale: number;
     pressureIterations: number;
-    maxVelocityDisplay: number;
 }
 
 export class VelocityGrid {
@@ -53,7 +52,6 @@ export class VelocityGrid {
             dt: 0.016,
             forceScale: 1.0,
             pressureIterations: PRESSURE_ITERS,
-            maxVelocityDisplay: 5.0
         };
 
         this.simUniformBuffer = device.createBuffer({

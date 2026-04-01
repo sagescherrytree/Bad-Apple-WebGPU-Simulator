@@ -20,6 +20,7 @@ import { ParticleSystem } from './simulations/particleSystem.js';
 
 const WIDTH = 480;
 const HEIGHT = 360;
+const NUM_PARTICLES = 10000;
 
 // Initialise GPU Context in main.ts because all we use is video input.
 async function main() {
@@ -51,18 +52,26 @@ async function main() {
         dt: 0.016,
         forceScale: 1.0,
         pressureIterations: 20,
-        maxVelocityDisplay: 5.0
+    };
+
+    const particleParams = {
+        advectionGain: 0.003
     };
 
     const gui = new GUI();
     const fluidFolder = gui.addFolder("Fluid Simulation");
 
-    fluidFolder.add(fluidParams, "dt", 0.001, 0.05, 0.001);
-    fluidFolder.add(fluidParams, "forceScale", 0.0, 10.0, 0.1);
+    fluidFolder.add(fluidParams, "dt", 0.0, 5.0, 0.001);
+    fluidFolder.add(fluidParams, "forceScale", 0.0, 100.0, 0.1);
     fluidFolder.add(fluidParams, "pressureIterations", 1, 100, 1);
-    fluidFolder.add(fluidParams, "maxVelocityDisplay", 0.1, 20.0, 0.1);
 
     fluidFolder.open();
+
+    const particleFolder = gui.addFolder("Particle System");
+
+    particleFolder.add(particleParams, "advectionGain", 0.0, 10.0, 0.001);
+
+    particleFolder.open();
 
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
@@ -143,10 +152,9 @@ async function main() {
     const velocityGrid = new VelocityGrid(gpu.device, WIDTH, HEIGHT, fluidParams);
     //const velocityDebugPass = new VelocityDebugPass(gpu.device, gpu.format);
 
-    const NUM_PARTICLES = 10000;
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, jfaToForce.forceTexture, thresholdPass.binaryTexture, gpu.format, fluidParams
+        gpu.device, NUM_PARTICLES, jfaToForce.forceTexture, thresholdPass.binaryTexture, gpu.format, fluidParams, particleParams.advectionGain
     );
 
     // In frame loop, update threshold pass as well.
