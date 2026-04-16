@@ -52,6 +52,7 @@ async function main() {
         dt: 0.016,
         forceScale: 1.0,
         pressureIterations: 20,
+        dampening: 0.99,
     };
 
     const particleParams = {
@@ -64,6 +65,7 @@ async function main() {
     fluidFolder.add(fluidParams, "dt", 0.0, 5.0, 0.001);
     fluidFolder.add(fluidParams, "forceScale", 0.0, 100.0, 0.1);
     fluidFolder.add(fluidParams, "pressureIterations", 1, 100, 1);
+    fluidFolder.add(fluidParams, "dampening", 0.0, 1.0, 0.001);
 
     fluidFolder.open();
 
@@ -72,6 +74,8 @@ async function main() {
     particleFolder.add(particleParams, "advectionGain", 0.0, 10.0, 0.001);
 
     particleFolder.open();
+
+    // TODO: Add smoke simulation params.
 
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
@@ -154,7 +158,7 @@ async function main() {
 
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, jfaToForce.forceTexture, thresholdPass.binaryTexture, gpu.format, fluidParams, particleParams.advectionGain
+        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, gpu.format, fluidParams, particleParams.advectionGain
     );
 
     // In frame loop, update threshold pass as well.
@@ -178,7 +182,7 @@ async function main() {
             jfaToForce.dispatch(gpu.device, finalTexture, WIDTH, HEIGHT);
             velocityGrid.step(gpu.device, dt, jfaToForce.forceTexture);
             //vectorFieldDebugPass.vectorTexture = finalTexture;
-            particleSystem.step(gpu.device, jfaToForce.forceTexture, thresholdPass.binaryTexture);
+            particleSystem.step(gpu.device, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture);
             //jfaPass.dispatch(gpu.device, WIDTH, HEIGHT, vectorTextureA, vectorTextureB);
         },
         () => {

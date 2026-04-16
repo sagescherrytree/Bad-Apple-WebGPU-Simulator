@@ -6,6 +6,7 @@ interface FluidParams {
     dt: number;
     forceScale: number;
     pressureIterations: number;
+    dampening: number;
 }
 
 // Particle parameters.
@@ -40,6 +41,7 @@ export class ParticleSystem {
             dt: 0.016,
             forceScale: 1.0,
             pressureIterations: 20,
+            dampening: 0.99,
         };
 
         // Set up particles buffer.
@@ -52,7 +54,7 @@ export class ParticleSystem {
         // Set up fluid params buffer.
         this.fluidParamsBuffer = device.createBuffer({
             label: "FluidParamsBuffer",
-            size: 16 * 3, // 3 float values (dt, forceScale, pressureIterations).
+            size: 16 * 4, // 4 float values (dt, forceScale, pressureIterations, dampening).
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -136,6 +138,7 @@ export class ParticleSystem {
         fluidSimParams[0] = this.fluidParams.dt;
         fluidSimParams[1] = this.fluidParams.forceScale;
         fluidSimParams[2] = this.fluidParams.pressureIterations;
+        fluidSimParams[3] = this.fluidParams.dampening;
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 
@@ -151,6 +154,7 @@ export class ParticleSystem {
         fluidSimParams[0] = this.fluidParams.dt;
         fluidSimParams[1] = this.fluidParams.forceScale;
         fluidSimParams[2] = this.fluidParams.pressureIterations;
+        fluidSimParams[3] = this.fluidParams.dampening;
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 

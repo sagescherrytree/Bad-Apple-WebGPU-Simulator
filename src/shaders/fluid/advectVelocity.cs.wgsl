@@ -1,6 +1,7 @@
 struct SimParams {
     dt: f32,
     forceScale: f32,
+    dampening: f32,
     width: f32,
     height: f32,
 };
@@ -32,7 +33,7 @@ fn main(@builtin(global_invocation_id) id : vec3<u32>) {
     // Compute the previous position along the velocity field.
     let prevPos = coord - vel * params.dt;
 
-    let damping = 0.2;
+    let damping = params.dampening;
 
     // Clamp coordinates to the grid.
     let samplePos = clampCoord(prevPos);

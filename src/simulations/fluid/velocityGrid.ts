@@ -11,6 +11,7 @@ export interface FluidParams {
     dt: number;
     forceScale: number;
     pressureIterations: number;
+    dampening: number;
 }
 
 export class VelocityGrid {
@@ -52,10 +53,11 @@ export class VelocityGrid {
             dt: 0.016,
             forceScale: 1.0,
             pressureIterations: PRESSURE_ITERS,
+            dampening: 0.99,
         };
 
         this.simUniformBuffer = device.createBuffer({
-            size: 4 * 4, // dt, width, height, padding
+            size: 5 * 4, // dt, forceScale, dampening, width, height
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
@@ -71,18 +73,15 @@ export class VelocityGrid {
         this.params.dt = dt;
         const encoder = device.createCommandEncoder();
 
-        const simParams = new Float32Array(4);
+        const simParams = new Float32Array(5);
 
         simParams[0] = this.params.dt;
         simParams[1] = this.params.forceScale;
-        simParams[2] = this.width;
-        simParams[3] = this.height;
+        simParams[2] = this.params.dampening;
+        simParams[3] = this.width;
+        simParams[4] = this.height;
 
-        device.queue.writeBuffer(
-            this.simUniformBuffer,
-            0,
-            simParams
-        );
+        device.queue.writeBuffer(this.simUniformBuffer, 0, simParams);
 
         // Force.
         this.runComputePass(

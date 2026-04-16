@@ -1,6 +1,7 @@
 struct SimParams {
     dt: f32,
     forceScale: f32,
+    dampening: f32,
     width: f32,
     height: f32,
 };
