@@ -53,6 +53,7 @@ async function main() {
         forceScale: 1.0,
         pressureIterations: 20,
         dampening: 0.99,
+        epsilon: 1.0, // Vorticity params.
     };
 
     const particleParams = {
@@ -76,6 +77,10 @@ async function main() {
     particleFolder.open();
 
     // TODO: Add smoke simulation params.
+    const smokeFolder = gui.addFolder("Smoke Simulation");
+
+    smokeFolder.add(fluidParams, "epsilon", 0.0, 50.0, 0.1);
+    smokeFolder.open();
 
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(

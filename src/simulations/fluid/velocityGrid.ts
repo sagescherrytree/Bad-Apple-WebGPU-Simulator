@@ -3,6 +3,7 @@ import advectShader from "../../shaders/fluid/advectVelocity.cs.wgsl?raw";
 import divergenceShader from "../../shaders/fluid/computeDivergence.cs.wgsl?raw";
 import pressureShader from "../../shaders/fluid/pressure.cs.wgsl?raw";
 import gradientShader from "../../shaders/fluid/subtractGradient.cs.wgsl?raw";
+import vorticityShader from "../../shaders/smoke_fire/vorticityConfinement.cs.wgsl?raw";
 
 const WORKGROUP_SIZE = 8;
 const PRESSURE_ITERS = 20;
@@ -12,6 +13,7 @@ export interface FluidParams {
     forceScale: number;
     pressureIterations: number;
     dampening: number;
+    epsilon: number; // for vorticity confinement.
 }
 
 export class VelocityGrid {
@@ -37,6 +39,7 @@ export class VelocityGrid {
     private divergencePipeline: GPUComputePipeline;
     private pressurePipeline: GPUComputePipeline;
     private gradientPipeline: GPUComputePipeline;
+    private vorticityPipeline: GPUComputePipeline;
 
     constructor(device: GPUDevice, width: number, height: number, simParams?: FluidParams) {
         this.width = width;
@@ -54,10 +57,11 @@ export class VelocityGrid {
             forceScale: 1.0,
             pressureIterations: PRESSURE_ITERS,
             dampening: 0.99,
+            epsilon: 1.0, // Vorticity params.
         };
 
         this.simUniformBuffer = device.createBuffer({
-            size: 5 * 4, // dt, forceScale, dampening, width, height
+            size: 7 * 4, // dt, forceScale, dampening, width, height, epsilon, dx
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
@@ -67,19 +71,22 @@ export class VelocityGrid {
         this.divergencePipeline = this.createPipeline(device, "divergencePipeline", divergenceShader);
         this.pressurePipeline = this.createPipeline(device, "pressurePipeline", pressureShader);
         this.gradientPipeline = this.createPipeline(device, "gradientPipeline", gradientShader);
+        this.vorticityPipeline = this.createPipeline(device, "vorticityPipeline", vorticityShader);
     }
 
     step(device: GPUDevice, dt: number, externalForceTex: GPUTexture) {
         this.params.dt = dt;
         const encoder = device.createCommandEncoder();
 
-        const simParams = new Float32Array(5);
+        const simParams = new Float32Array(7);
 
         simParams[0] = this.params.dt;
         simParams[1] = this.params.forceScale;
         simParams[2] = this.params.dampening;
         simParams[3] = this.width;
         simParams[4] = this.height;
+        simParams[5] = this.params.epsilon;
+        simParams[6] = 1.0 / Math.max(this.width, this.height);
 
         device.queue.writeBuffer(this.simUniformBuffer, 0, simParams);
 
@@ -101,6 +108,15 @@ export class VelocityGrid {
             this.advectPipeline,
             this.velocityA, // velocityIn
             this.velocityB, // velocityOut
+        );
+        this.swapVelocity();
+
+        // Vorticity calculations.
+        this.runSmallComputePass(
+            device, encoder,
+            this.vorticityPipeline,
+            this.velocityA, // velocityIn
+            this.velocityB // velocityOut
         );
         this.swapVelocity();
 

@@ -4,6 +4,8 @@ struct SimParams {
     dampening: f32,
     width: f32,
     height: f32,
+    epsilon: f32, 
+    dx: f32,
 };
 
 @group(0) @binding(0)

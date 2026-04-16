@@ -7,7 +7,9 @@ struct FluidSimParams {
     dt: f32,
     forceScale: f32,
     pressureIterations: f32,
-    dampening: f32
+    dampening: f32,
+    epsilon: f32, 
+    dx: f32,
 };
 
 struct ParticleParams {
