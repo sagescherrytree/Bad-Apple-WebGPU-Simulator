@@ -171,6 +171,11 @@ export class ParticleSystem {
         this.numParticles = nextCount;
     }
 
+    // Set advection gain (update uniform buffer).
+    setAdvectionGain(gain: number) {
+        this.velocityScale = gain;
+    }
+
     step(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
         // Rewrite updated values for fluid sim params buffer.
         const fluidSimParams = new Float32Array(5);

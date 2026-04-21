@@ -82,7 +82,10 @@ async function main() {
                 thresholdPass.binaryTexture
             );
         });
-    particleFolder.add(particleParams, "advectionGain", 0.0, 10.0, 0.001);
+    particleFolder.add(particleParams, "advectionGain", 0.0, 0.1, 0.001)
+        .onFinishChange((value: number) => {
+            particleSystem.setAdvectionGain(value);
+        });
 
     particleFolder.open();
 
