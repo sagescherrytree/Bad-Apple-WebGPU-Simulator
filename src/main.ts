@@ -57,6 +57,7 @@ async function main() {
     };
 
     const particleParams = {
+        numParts: NUM_PARTICLES,
         advectionGain: 0.003
     };
 
@@ -72,6 +73,15 @@ async function main() {
 
     const particleFolder = gui.addFolder("Particle System");
 
+    particleFolder.add(particleParams, "numParts", 1000, 50000, 1000)
+        .onFinishChange((value: number) => {
+            particleSystem.setParticleCount(
+                gpu.device,
+                value,
+                velocityGrid.getVelocityTexture(),
+                thresholdPass.binaryTexture
+            );
+        });
     particleFolder.add(particleParams, "advectionGain", 0.0, 10.0, 0.001);
 
     particleFolder.open();

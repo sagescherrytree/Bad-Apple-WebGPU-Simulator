@@ -150,6 +150,27 @@ export class ParticleSystem {
         device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
     }
 
+    // Update particle count (recreate buffer and bind groups).
+    setParticleCount(device: GPUDevice, nextCount: number, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
+        if (nextCount === this.numParticles) return;
+
+        // Create new buffer with updated size.
+        const newPartBuffer = device.createBuffer({
+            label: "ParticlesBuffer",
+            size: nextCount * 4 * 4, // 4 floats per particle, 4 bytes each
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC | GPUBufferUsage.VERTEX,
+        });
+
+        // Copy existing particle data to the new buffer.
+        const encoder = device.createCommandEncoder();
+        encoder.copyBufferToBuffer(this.particlesBuffer, 0, newPartBuffer, 0, Math.min(this.numParticles, nextCount) * 4 * 4);
+        device.queue.submit([encoder.finish()]);
+
+        // Update the particles buffer reference.
+        this.particlesBuffer = newPartBuffer;
+        this.numParticles = nextCount;
+    }
+
     step(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
         // Rewrite updated values for fluid sim params buffer.
         const fluidSimParams = new Float32Array(5);
