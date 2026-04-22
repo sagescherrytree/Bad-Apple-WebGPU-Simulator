@@ -61,7 +61,18 @@ async function main() {
         advectionGain: 0.003
     };
 
+    // Render modes.
+    const renderParams = {
+        mode: "Default Fluid"
+    };
+
     const gui = new GUI();
+
+    const renderModeFolder = gui.addFolder("Render Mode");
+    renderModeFolder.add(renderParams, "mode", ["Default Fluid", "Smoke"]).name("Rendering Mode");
+
+    renderModeFolder.open();
+
     const fluidFolder = gui.addFolder("Fluid Simulation");
 
     fluidFolder.add(fluidParams, "dt", 0.0, 5.0, 0.001);
@@ -78,8 +89,6 @@ async function main() {
             particleSystem.setParticleCount(
                 gpu.device,
                 value,
-                velocityGrid.getVelocityTexture(),
-                thresholdPass.binaryTexture
             );
         });
     particleFolder.add(particleParams, "advectionGain", 0.0, 0.1, 0.001)
@@ -207,7 +216,12 @@ async function main() {
             const view = gpu.context.getCurrentTexture().createView();
             //vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
             //velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
-            particleSystem.render(gpu.device, view);
+            if (renderParams.mode === "Default Fluid") {
+                particleSystem.render(gpu.device, view);
+            } else if (renderParams.mode === "Smoke") {
+                particleSystem.renderSmoke(gpu.device, view);
+            }
+            // particleSystem.render(gpu.device, view);
             // binaryDebugPass.render(gpu.device, gpu.context);
             // videoPass.render(gpu.device, gpu.context);
         }

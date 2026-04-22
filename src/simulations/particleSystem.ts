@@ -1,6 +1,8 @@
 import particleShader from "../shaders/particles.cs.wgsl?raw";
 import particleVertShader from "../shaders/particles.vert.wgsl?raw";
 import particleFragShader from "../shaders/particles.frag.wgsl?raw";
+import smokeVertShader from "../shaders/smokeParticles.vert.wgsl?raw";
+import smokeFragShader from "../shaders/smokeParticles.frag.wgsl?raw";
 
 interface FluidParams {
     dt: number;
@@ -23,6 +25,10 @@ export class ParticleSystem {
     // For rendering particles.
     renderPipeline: GPURenderPipeline;
     renderBindGroup: GPUBindGroup;
+
+    // For smoke rendering.
+    smokePipeline: GPURenderPipeline;
+    smokeBindGroup: GPUBindGroup;
 
     private numParticles: number;
     private velocityScale: number;
@@ -124,6 +130,63 @@ export class ParticleSystem {
             },
         });
 
+        // Smoke rendering pipeline.
+        const smokeBindGroupLayout = device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.VERTEX,
+                    buffer: { type: "read-only-storage" },
+                },
+            ],
+        });
+
+        this.smokeBindGroup = device.createBindGroup({
+            layout: smokeBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+            ],
+        });
+
+        const smokePipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [smokeBindGroupLayout],
+        });
+
+        // Le smoke rendering pipeline.
+        this.smokePipeline = device.createRenderPipeline({
+            layout: smokePipelineLayout,
+            vertex: {
+                module: device.createShaderModule({ code: smokeVertShader }),
+                entryPoint: "main",
+            },
+            fragment: {
+                module: device.createShaderModule({ code: smokeFragShader }),
+                entryPoint: "main",
+                targets: [
+                    {
+                        format: format,
+
+                        blend: {
+                            color: {
+                                srcFactor: "src-alpha",
+                                dstFactor: "one",
+                                operation: "add",
+                            },
+
+                            alpha: {
+                                srcFactor: "one",
+                                dstFactor: "one",
+                                operation: "add",
+                            },
+                        },
+                    },
+                ],
+            },
+            primitive: {
+                topology: "triangle-list",  // was "point-list"
+            },
+        });
+
         // Initialize particles.
         const initialData = new Float32Array(numParticles * 4); // pos.xy, vel.xy
         for (let i = 0; i < numParticles; i++) {
@@ -151,7 +214,7 @@ export class ParticleSystem {
     }
 
     // Update particle count (recreate buffer and bind groups).
-    setParticleCount(device: GPUDevice, nextCount: number, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
+    setParticleCount(device: GPUDevice, nextCount: number) {
         if (nextCount === this.numParticles) return;
 
         // Create new buffer with updated size.
@@ -244,6 +307,32 @@ export class ParticleSystem {
         renderPass.draw(this.numParticles * 6, 1, 0, 0);
 
         renderPass.end();
+        device.queue.submit([encoder.finish()]);
+    }
+
+    // Smoke rendering.
+    renderSmoke(device: GPUDevice, view: GPUTextureView) {
+        // TODO: Set up smoke rendering pipeline.
+        const encoder = device.createCommandEncoder();
+        const textureView = view;
+
+        const renderPass = encoder.beginRenderPass({
+            colorAttachments: [
+                {
+                    view: textureView,
+                    clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                    loadOp: "load",
+                    storeOp: "store",
+                },
+            ],
+        });
+
+        renderPass.setPipeline(this.smokePipeline);
+        renderPass.setBindGroup(0, this.smokeBindGroup);
+        renderPass.draw(this.numParticles * 6, 1, 0, 0);
+
+        renderPass.end();
+
         device.queue.submit([encoder.finish()]);
     }
 }
