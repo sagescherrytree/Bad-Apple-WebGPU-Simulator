@@ -3,7 +3,16 @@ struct Particle {
     vel: vec2<f32>,
 };
 
+struct SmokeParams {
+    colour: vec4<f32>,
+    size: f32,
+    randomColour: f32,
+    _pad0: f32,
+    _pad1: f32,
+};
+
 @group(0) @binding(0) var<storage, read> particles: array<Particle>;
+@group(0) @binding(1) var<uniform> smokeParams: SmokeParams;
 
 struct VSOut {
     @builtin(position) pos: vec4<f32>,
@@ -17,7 +26,7 @@ fn main(@builtin(vertex_index) vertIndex: u32) -> VSOut {
 
     let particle = particles[particleIndex];
 
-    let size = 0.02;   // larger for smoke
+    let size = smokeParams.size;
 
     var corners = array<vec2<f32>, 6>(
         vec2<f32>(-size, -size),

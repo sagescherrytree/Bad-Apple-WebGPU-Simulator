@@ -12,6 +12,13 @@ interface FluidParams {
     epsilon: number,
 }
 
+interface SmokeParams {
+    size: number;
+    colour: [number, number, number];
+    alpha: number;
+    randomColour: boolean;
+}
+
 // Particle parameters.
 export interface ParticleParams {
     velocityScale: number;
@@ -40,7 +47,11 @@ export class ParticleSystem {
     // Buffer for fluid params.
     private fluidParamsBuffer: GPUBuffer;
 
-    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, advectionGain: number) {
+    // Accept params for smoke rendering.
+    private smokeParams: SmokeParams;
+    private smokeParamsBuffer: GPUBuffer;
+
+    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, advectionGain: number) {
         this.numParticles = numParticles;
         this.velocityScale = advectionGain;
 
@@ -50,6 +61,13 @@ export class ParticleSystem {
             pressureIterations: 20,
             dampening: 0.99,
             epsilon: 1.0,
+        };
+
+        this.smokeParams = smokeParams || {
+            size: 0.02,
+            colour: [255, 255, 255],
+            alpha: 0.5,
+            randomColour: false,
         };
 
         // Set up particles buffer.
@@ -63,6 +81,12 @@ export class ParticleSystem {
         this.fluidParamsBuffer = device.createBuffer({
             label: "FluidParamsBuffer",
             size: 16 * 5, // 5 float values (dt, forceScale, pressureIterations, dampening, epsilon).
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.smokeParamsBuffer = device.createBuffer({
+            label: "SmokeParamsBuffer",
+            size: 32, // vec4<f32> colour + alpha, size, randomColour flag, padding.
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -138,6 +162,11 @@ export class ParticleSystem {
                     visibility: GPUShaderStage.VERTEX,
                     buffer: { type: "read-only-storage" },
                 },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: { type: "uniform" },
+                }
             ],
         });
 
@@ -145,6 +174,7 @@ export class ParticleSystem {
             layout: smokeBindGroupLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
             ],
         });
 
@@ -211,6 +241,17 @@ export class ParticleSystem {
         const particleParamsData = new Float32Array(4);
         particleParamsData[0] = this.velocityScale;
         device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
+
+        // Initialize smoke render params buffer.
+        const smokeParamsData = new Float32Array(8);
+        smokeParamsData[0] = this.smokeParams.colour[0] / 255.0;
+        smokeParamsData[1] = this.smokeParams.colour[1] / 255.0;
+        smokeParamsData[2] = this.smokeParams.colour[2] / 255.0;
+        smokeParamsData[3] = this.smokeParams.alpha;
+        smokeParamsData[4] = this.smokeParams.size;
+        smokeParamsData[5] = this.smokeParams.randomColour ? 1.0 : 0.0;
+
+        device.queue.writeBuffer(this.smokeParamsBuffer, 0, smokeParamsData);
     }
 
     // Update particle count (recreate buffer and bind groups).
@@ -255,6 +296,17 @@ export class ParticleSystem {
         particleParamsData[0] = this.velocityScale;
         device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
 
+        // Rewrite smoke render params buffer.
+        const smokeParamsData = new Float32Array(8);
+        smokeParamsData[0] = this.smokeParams.colour[0] / 255.0;
+        smokeParamsData[1] = this.smokeParams.colour[1] / 255.0;
+        smokeParamsData[2] = this.smokeParams.colour[2] / 255.0;
+        smokeParamsData[3] = this.smokeParams.alpha;
+        smokeParamsData[4] = this.smokeParams.size;
+        smokeParamsData[5] = this.smokeParams.randomColour ? 1.0 : 0.0;
+
+        device.queue.writeBuffer(this.smokeParamsBuffer, 0, smokeParamsData);
+
         // Reuse buffer; update bind group with current velocity texture
         this.particlesBindGroup = device.createBindGroup({
             layout: this.particlesPipeline.getBindGroupLayout(0),
@@ -271,6 +323,14 @@ export class ParticleSystem {
             layout: this.renderPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
+            ],
+        });
+
+        this.smokeBindGroup = device.createBindGroup({
+            layout: this.smokePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
             ],
         });
 

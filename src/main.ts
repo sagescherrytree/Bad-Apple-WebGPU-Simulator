@@ -61,6 +61,14 @@ async function main() {
         advectionGain: 0.003
     };
 
+    // Smoke params.
+    const smokeParams = {
+        size: 0.02, // Updated in vert shader.
+        colour: [255, 255, 255] as [number, number, number], // Updated in frag shader.
+        alpha: 0.5, // Not actual alpha, but an influence val that gets multiplied in frag shader.
+        randomColour: false
+    };
+
     // Render modes.
     const renderParams = {
         mode: "Default Fluid"
@@ -102,6 +110,14 @@ async function main() {
     const smokeFolder = gui.addFolder("Smoke Simulation");
 
     smokeFolder.add(fluidParams, "epsilon", 0.0, 50.0, 0.1);
+    // Size of smoke particles.
+    smokeFolder.add(smokeParams, "size", 0.001, 0.1, 0.001);
+    // Colour of smoke particles.
+    smokeFolder.addColor(smokeParams, "colour");
+    // Alpha of smoke particles.
+    smokeFolder.add(smokeParams, "alpha", 0.0, 1.0, 0.01);
+    // Random colours on/off.
+    smokeFolder.add(smokeParams, "randomColour", false);
     smokeFolder.open();
 
     // Take in the video!
@@ -185,7 +201,7 @@ async function main() {
 
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, gpu.format, fluidParams, particleParams.advectionGain
+        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, gpu.format, fluidParams, smokeParams, particleParams.advectionGain
     );
 
     // In frame loop, update threshold pass as well.
