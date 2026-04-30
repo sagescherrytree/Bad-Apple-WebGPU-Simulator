@@ -16,7 +16,14 @@ interface SmokeParams {
     size: number;
     colour: [number, number, number];
     alpha: number;
-    randomColour: boolean;
+    jfaColour: boolean;
+}
+
+interface RandomColOptions {
+    nearColour: [number, number, number];
+    farColour: [number, number, number];
+    maxDist: number;
+    blend: number;
 }
 
 // Particle parameters.
@@ -51,7 +58,11 @@ export class ParticleSystem {
     private smokeParams: SmokeParams;
     private smokeParamsBuffer: GPUBuffer;
 
-    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, advectionGain: number) {
+    // Accept params for random colour generation.
+    private randomColOptions: RandomColOptions;
+    private randomColOptionsBuffer: GPUBuffer;
+
+    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, jfaTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, randomColOptions: RandomColOptions, advectionGain: number) {
         this.numParticles = numParticles;
         this.velocityScale = advectionGain;
 
@@ -67,7 +78,14 @@ export class ParticleSystem {
             size: 0.02,
             colour: [255, 255, 255],
             alpha: 0.5,
-            randomColour: false,
+            jfaColour: false,
+        };
+
+        this.randomColOptions = randomColOptions || {
+            nearColour: [255, 255, 255],
+            farColour: [255, 0, 0],
+            maxDist: 100.0,
+            blend: 1.0,
         };
 
         // Set up particles buffer.
@@ -87,6 +105,12 @@ export class ParticleSystem {
         this.smokeParamsBuffer = device.createBuffer({
             label: "SmokeParamsBuffer",
             size: 32, // vec4<f32> colour + alpha, size, randomColour flag, padding.
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.randomColOptionsBuffer = device.createBuffer({
+            label: "RandomColOptionsBuffer",
+            size: 48, // vec4<f32> nearColour, farColour, maxDist, blend.
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -166,6 +190,16 @@ export class ParticleSystem {
                     binding: 1,
                     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: { type: "uniform" },
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: { type: "uniform" },
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    texture: { sampleType: "unfilterable-float" },
                 }
             ],
         });
@@ -175,6 +209,8 @@ export class ParticleSystem {
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
                 { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
+                { binding: 2, resource: { buffer: this.randomColOptionsBuffer } },
+                { binding: 3, resource: jfaTexture.createView() },
             ],
         });
 
@@ -249,9 +285,26 @@ export class ParticleSystem {
         smokeParamsData[2] = this.smokeParams.colour[2] / 255.0;
         smokeParamsData[3] = this.smokeParams.alpha;
         smokeParamsData[4] = this.smokeParams.size;
-        smokeParamsData[5] = this.smokeParams.randomColour ? 1.0 : 0.0;
+        smokeParamsData[5] = this.smokeParams.jfaColour ? 1.0 : 0.0;
 
         device.queue.writeBuffer(this.smokeParamsBuffer, 0, smokeParamsData);
+
+        // Initialize JFA colour options buffer.
+        const randomColData = new Float32Array(12);
+        randomColData[0] = this.randomColOptions.nearColour[0] / 255.0;
+        randomColData[1] = this.randomColOptions.nearColour[1] / 255.0;
+        randomColData[2] = this.randomColOptions.nearColour[2] / 255.0;
+        randomColData[3] = 1.0;
+
+        randomColData[4] = this.randomColOptions.farColour[0] / 255.0;
+        randomColData[5] = this.randomColOptions.farColour[1] / 255.0;
+        randomColData[6] = this.randomColOptions.farColour[2] / 255.0;
+        randomColData[7] = 1.0;
+
+        randomColData[8] = this.randomColOptions.maxDist;
+        randomColData[9] = this.randomColOptions.blend;
+
+        device.queue.writeBuffer(this.randomColOptionsBuffer, 0, randomColData);
     }
 
     // Update particle count (recreate buffer and bind groups).
@@ -303,9 +356,25 @@ export class ParticleSystem {
         smokeParamsData[2] = this.smokeParams.colour[2] / 255.0;
         smokeParamsData[3] = this.smokeParams.alpha;
         smokeParamsData[4] = this.smokeParams.size;
-        smokeParamsData[5] = this.smokeParams.randomColour ? 1.0 : 0.0;
+        smokeParamsData[5] = this.smokeParams.jfaColour ? 1.0 : 0.0;
 
         device.queue.writeBuffer(this.smokeParamsBuffer, 0, smokeParamsData);
+
+        const randomColData = new Float32Array(12);
+        randomColData[0] = this.randomColOptions.nearColour[0] / 255.0;
+        randomColData[1] = this.randomColOptions.nearColour[1] / 255.0;
+        randomColData[2] = this.randomColOptions.nearColour[2] / 255.0;
+        randomColData[3] = 1.0;
+
+        randomColData[4] = this.randomColOptions.farColour[0] / 255.0;
+        randomColData[5] = this.randomColOptions.farColour[1] / 255.0;
+        randomColData[6] = this.randomColOptions.farColour[2] / 255.0;
+        randomColData[7] = 1.0;
+
+        randomColData[8] = this.randomColOptions.maxDist;
+        randomColData[9] = this.randomColOptions.blend;
+
+        device.queue.writeBuffer(this.randomColOptionsBuffer, 0, randomColData);
 
         // Reuse buffer; update bind group with current velocity texture
         this.particlesBindGroup = device.createBindGroup({
@@ -323,14 +392,6 @@ export class ParticleSystem {
             layout: this.renderPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
-            ],
-        });
-
-        this.smokeBindGroup = device.createBindGroup({
-            layout: this.smokePipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this.particlesBuffer } },
-                { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
             ],
         });
 
@@ -371,10 +432,20 @@ export class ParticleSystem {
     }
 
     // Smoke rendering.
-    renderSmoke(device: GPUDevice, view: GPUTextureView) {
+    renderSmoke(device: GPUDevice, view: GPUTextureView, jfaTexture: GPUTexture) {
         // TODO: Set up smoke rendering pipeline.
         const encoder = device.createCommandEncoder();
         const textureView = view;
+
+        this.smokeBindGroup = device.createBindGroup({
+            layout: this.smokePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
+                { binding: 2, resource: { buffer: this.randomColOptionsBuffer } },
+                { binding: 3, resource: jfaTexture.createView() },
+            ],
+        });
 
         const renderPass = encoder.beginRenderPass({
             colorAttachments: [

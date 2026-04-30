@@ -6,7 +6,7 @@ struct Particle {
 struct SmokeParams {
     colour: vec4<f32>,
     size: f32,
-    randomColour: f32,
+    jfaColour: f32,
     _pad0: f32,
     _pad1: f32,
 };
@@ -17,6 +17,7 @@ struct SmokeParams {
 struct VSOut {
     @builtin(position) pos: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) particleUv: vec2<f32>,
 };
 
 @vertex
@@ -56,6 +57,8 @@ fn main(@builtin(vertex_index) vertIndex: u32) -> VSOut {
     var out: VSOut;
     out.pos = vec4<f32>(ndc + corners[cornerIndex], 0.0, 1.0);
     out.uv  = uvs[cornerIndex];
+
+    out.particleUv = particle.pos;
 
     return out;
 }

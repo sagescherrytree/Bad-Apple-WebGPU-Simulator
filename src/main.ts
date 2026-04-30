@@ -66,8 +66,16 @@ async function main() {
         size: 0.02, // Updated in vert shader.
         colour: [255, 255, 255] as [number, number, number], // Updated in frag shader.
         alpha: 0.5, // Not actual alpha, but an influence val that gets multiplied in frag shader.
-        randomColour: false
+        jfaColour: false
     };
+
+    // For colour based on jfa texture.
+    const randomColOptions = {
+        nearColour: [255, 100, 50] as [number, number, number],  // close to edge.
+        farColour: [50, 100, 255] as [number, number, number],   // far from edge.
+        maxDist: 80.0,   // distance at which farColour is fully reached (in texels).
+        blend: 1.0 // Falloff exponent.
+    }
 
     // Render modes.
     const renderParams = {
@@ -116,8 +124,13 @@ async function main() {
     smokeFolder.addColor(smokeParams, "colour");
     // Alpha of smoke particles.
     smokeFolder.add(smokeParams, "alpha", 0.0, 1.0, 0.01);
-    // Random colours on/off.
-    smokeFolder.add(smokeParams, "randomColour", false);
+    // JFA colours on/off.
+    smokeFolder.add(smokeParams, "jfaColour", false);
+    // If JFA colours on, insert randColOptions.
+    smokeFolder.addColor(randomColOptions, "nearColour");
+    smokeFolder.addColor(randomColOptions, "farColour");
+    smokeFolder.add(randomColOptions, "maxDist", 1.0, 200.0, 1.0);
+    smokeFolder.add(randomColOptions, "blend", 0.0, 5.0, 0.1);
     smokeFolder.open();
 
     // Take in the video!
@@ -167,6 +180,7 @@ async function main() {
 
     // JFA pass.
     const jfaPass = new JumpFloodAlgorithm(gpu.device);
+    let finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
 
     // Debug fullscreen pass to verify that binary texture working.
     // const binaryDebugPass = new FullscreenVideoPass(
@@ -201,7 +215,7 @@ async function main() {
 
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, gpu.format, fluidParams, smokeParams, particleParams.advectionGain
+        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, finalTexture, gpu.format, fluidParams, smokeParams, randomColOptions, particleParams.advectionGain
     );
 
     // In frame loop, update threshold pass as well.
@@ -221,7 +235,7 @@ async function main() {
                 step = Math.floor(step / 2);
             }
 
-            const finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
+            finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
             jfaToForce.dispatch(gpu.device, finalTexture, WIDTH, HEIGHT);
             velocityGrid.step(gpu.device, dt, jfaToForce.forceTexture);
             //vectorFieldDebugPass.vectorTexture = finalTexture;
@@ -235,7 +249,7 @@ async function main() {
             if (renderParams.mode === "Default Fluid") {
                 particleSystem.render(gpu.device, view);
             } else if (renderParams.mode === "Smoke") {
-                particleSystem.renderSmoke(gpu.device, view);
+                particleSystem.renderSmoke(gpu.device, view, finalTexture); // Take in jfaTexture val, i.e. finalTexture.
             }
             // particleSystem.render(gpu.device, view);
             // binaryDebugPass.render(gpu.device, gpu.context);
