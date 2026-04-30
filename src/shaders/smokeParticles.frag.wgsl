@@ -25,9 +25,19 @@ struct VSOut {
 
 @fragment
 fn main(@location(0) uv: vec2<f32>, @location(1) particleUv: vec2<f32>) -> @location(0) vec4<f32> {
+    // Circular blobs.
     let center = vec2<f32>(0.5, 0.5);
     let d = distance(uv, center);
     let alpha = exp(-d * d * 12.0);
+
+    // Lineish blobs.
+    // let p = uv * 2.0 - vec2<f32>(1.0);
+    // let across = abs(p.y);
+    // let along = abs(p.x);
+
+    // let line = exp(-across * across * 18.0);
+    // let taper = smoothstep(1.0, 0.15, along);
+    // let alpha = line * taper;
 
     var smokeColor = smokeParams.colour.rgb;
 

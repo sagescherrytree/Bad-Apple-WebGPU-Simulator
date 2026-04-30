@@ -83,6 +83,8 @@ async function main() {
         enabled: true,
         fadeAmount: 0.95,
         intensity: 1.0,
+        length: 0.04,
+        width: 0.004,
     };
 
     // Render modes.
@@ -98,16 +100,13 @@ async function main() {
     renderModeFolder.open();
 
     const fluidFolder = gui.addFolder("Fluid Simulation");
-
     fluidFolder.add(fluidParams, "dt", 0.0, 5.0, 0.001);
     fluidFolder.add(fluidParams, "forceScale", 0.0, 100.0, 0.1);
     fluidFolder.add(fluidParams, "pressureIterations", 1, 100, 1);
     fluidFolder.add(fluidParams, "dampening", 0.0, 1.0, 0.001);
-
     fluidFolder.open();
 
     const particleFolder = gui.addFolder("Particle System");
-
     particleFolder.add(particleParams, "numParts", 1000, 50000, 1000)
         .onFinishChange((value: number) => {
             particleSystem.setParticleCount(
@@ -119,7 +118,6 @@ async function main() {
         .onFinishChange((value: number) => {
             particleSystem.setAdvectionGain(value);
         });
-
     particleFolder.open();
 
     // TODO: Add smoke simulation params.
@@ -145,6 +143,8 @@ async function main() {
     trailFolder.add(trailParams, "enabled", false);
     trailFolder.add(trailParams, "fadeAmount", 0.0, 1.0, 0.01);
     trailFolder.add(trailParams, "intensity", 0.0, 5.0, 0.1);
+    trailFolder.add(trailParams, "length", 0.001, 0.2, 0.001);
+    trailFolder.add(trailParams, "width", 0.001, 0.05, 0.001);
     trailFolder.open();
 
     // Take in the video!
@@ -274,8 +274,7 @@ async function main() {
             } else if (renderParams.mode === "Smoke") {
                 if (trailParams.enabled) {
                     trailPass.fade(gpu.device); // Fade existing trails.
-
-                    particleSystem.renderSmoke(gpu.device, trailPass.trailTextureView, finalTexture, "trail"); // Take in jfaTexture val, i.e. finalTexture.
+                    particleSystem.renderSmoke(gpu.device, trailPass.trailTextureView, finalTexture, "trail", trailParams.width, trailParams.length); // Take in jfaTexture val, i.e. finalTexture.
                     trailPass.blit(gpu.device, gpu.context);
                 } else {
                     particleSystem.renderSmoke(gpu.device, view, finalTexture); // Take in jfaTexture val, i.e. finalTexture.

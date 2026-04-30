@@ -44,7 +44,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // Move particle along force field.
     let velocityScale = fluidParams.forceScale * particleParams.velocityScale;
-    p.pos += force * velocityScale * fluidParams.dampening * fluidParams.dt;
+    let delta = force * velocityScale * fluidParams.dampening * fluidParams.dt;
+    p.vel = delta;
+    p.pos += delta;
 
     // Check if particle has left bounds or landed on a black pixel (inside silhouette)
     let newPixel = clamp(vec2<i32>(p.pos * texSize), vec2<i32>(0), texSizeI - vec2<i32>(1));

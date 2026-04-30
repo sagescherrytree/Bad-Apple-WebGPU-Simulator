@@ -1,32 +1,24 @@
-struct FadeParams {
-    fadeAmount: f32,
-    _pad0: f32,
-    _pad1: f32,
-    _pad2: f32,
+struct VSOut {
+    @builtin(position) pos : vec4<f32>,
+    @location(0) uv : vec2<f32>,
 };
 
-@group(0) @binding(0)
-var trailIn : texture_2d<f32>;
-
-@group(0) @binding(1)
-var trailOut : texture_storage_2d<rgba8unorm, write>;
-
-@group(0) @binding(2)
-var<uniform> fadeParams : FadeParams;
-
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) id : vec3<u32>) {
-    let dims = textureDimensions(trailOut);
-    if (id.x >= dims.x || id.y >= dims.y) { return; }
-
-    let coord = vec2<i32>(id.xy);
-    let current = textureLoad(trailIn, coord, 0);
-
-    // Multiply RGB by fadeAmount; preserve alpha.
-    let faded = vec4<f32>(
-        current.rgb * fadeParams.fadeAmount,
-        current.a
+@vertex
+fn main(@builtin(vertex_index) i : u32) -> VSOut {
+    // Fullscreen triangle — covers NDC [-1,1] with a single triangle.
+    var positions = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 3.0, -1.0),
+        vec2<f32>(-1.0,  3.0)
+    );
+    var uvs = array<vec2<f32>, 3>(
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(2.0, 1.0),
+        vec2<f32>(0.0, -1.0)
     );
 
-    textureStore(trailOut, coord, faded);
+    var out: VSOut;
+    out.pos = vec4<f32>(positions[i], 0.0, 1.0);
+    out.uv  = uvs[i];
+    return out;
 }

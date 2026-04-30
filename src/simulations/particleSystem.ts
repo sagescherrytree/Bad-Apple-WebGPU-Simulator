@@ -26,6 +26,12 @@ interface RandomColOptions {
     blend: number;
 }
 
+interface TrailShapeParams {
+    length: number;
+    width: number;
+    enabled: boolean;
+}
+
 // Particle parameters.
 export interface ParticleParams {
     velocityScale: number;
@@ -62,6 +68,8 @@ export class ParticleSystem {
     // Accept params for random colour generation.
     private randomColOptions: RandomColOptions;
     private randomColOptionsBuffer: GPUBuffer;
+
+    private trailShapeParamsBuffer: GPUBuffer;
 
     constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, jfaTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, randomColOptions: RandomColOptions, advectionGain: number) {
         this.numParticles = numParticles;
@@ -112,6 +120,12 @@ export class ParticleSystem {
         this.randomColOptionsBuffer = device.createBuffer({
             label: "RandomColOptionsBuffer",
             size: 48, // vec4<f32> nearColour, farColour, maxDist, blend.
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.trailShapeParamsBuffer = device.createBuffer({
+            label: "TrailShapeParamsBuffer",
+            size: 16, // length, width, useTrailShape, padding.
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -201,6 +215,11 @@ export class ParticleSystem {
                     binding: 3,
                     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     texture: { sampleType: "unfilterable-float" },
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.VERTEX,
+                    buffer: { type: "uniform" },
                 }
             ],
         });
@@ -212,6 +231,7 @@ export class ParticleSystem {
                 { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
                 { binding: 2, resource: { buffer: this.randomColOptionsBuffer } },
                 { binding: 3, resource: jfaTexture.createView() },
+                { binding: 4, resource: { buffer: this.trailShapeParamsBuffer } },
             ],
         });
 
@@ -309,6 +329,20 @@ export class ParticleSystem {
         randomColData[9] = this.randomColOptions.blend;
 
         device.queue.writeBuffer(this.randomColOptionsBuffer, 0, randomColData);
+
+        this.writeTrailShapeParams(device, {
+            length: this.smokeParams.size,
+            width: this.smokeParams.size,
+            enabled: false,
+        });
+    }
+
+    private writeTrailShapeParams(device: GPUDevice, params: TrailShapeParams) {
+        const trailShapeData = new Float32Array(4);
+        trailShapeData[0] = params.length;
+        trailShapeData[1] = params.width;
+        trailShapeData[2] = params.enabled ? 1.0 : 0.0;
+        device.queue.writeBuffer(this.trailShapeParamsBuffer, 0, trailShapeData);
     }
 
     // Update particle count (recreate buffer and bind groups).
@@ -436,10 +470,22 @@ export class ParticleSystem {
     }
 
     // Smoke rendering.
-    renderSmoke(device: GPUDevice, view: GPUTextureView, jfaTexture: GPUTexture, target: "canvas" | "trail" = "canvas") {
-        // TODO: Set up smoke rendering pipeline.
+    renderSmoke(
+        device: GPUDevice,
+        view: GPUTextureView,
+        jfaTexture: GPUTexture,
+        target: "canvas" | "trail" = "canvas",
+        trailWidth = this.smokeParams.size,
+        trailLength = this.smokeParams.size,
+    ) {
         const encoder = device.createCommandEncoder();
         const textureView = view;
+
+        this.writeTrailShapeParams(device, {
+            length: trailLength,
+            width: trailWidth,
+            enabled: target === "trail",
+        });
 
         this.smokeBindGroup = device.createBindGroup({
             layout: this.smokePipeline.getBindGroupLayout(0),
@@ -448,6 +494,7 @@ export class ParticleSystem {
                 { binding: 1, resource: { buffer: this.smokeParamsBuffer } },
                 { binding: 2, resource: { buffer: this.randomColOptionsBuffer } },
                 { binding: 3, resource: jfaTexture.createView() },
+                { binding: 4, resource: { buffer: this.trailShapeParamsBuffer } },
             ],
         });
 
