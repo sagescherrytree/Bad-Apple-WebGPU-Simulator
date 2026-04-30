@@ -14,6 +14,7 @@ import { JfaToForcePass } from './simulations/fluid/jfaToFluid.js';
 import { ParticleSystem } from './simulations/particleSystem.js';
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
+import { TrailPass } from './render/trailPass.js';
 
 // Rendering pipeline:
 // video -> videoThresholdPass (binaryTexture) -> fullScreenBinaryPass -> screen o/p.
@@ -77,6 +78,13 @@ async function main() {
         blend: 1.0 // Falloff exponent.
     }
 
+    // For trail toggles.
+    const trailParams = {
+        enabled: true,
+        fadeAmount: 0.95,
+        intensity: 1.0,
+    };
+
     // Render modes.
     const renderParams = {
         mode: "Default Fluid"
@@ -133,6 +141,12 @@ async function main() {
     smokeFolder.add(randomColOptions, "blend", 0.0, 5.0, 0.1);
     smokeFolder.open();
 
+    const trailFolder = gui.addFolder("Trail Effect");
+    trailFolder.add(trailParams, "enabled", false);
+    trailFolder.add(trailParams, "fadeAmount", 0.0, 1.0, 0.01);
+    trailFolder.add(trailParams, "intensity", 0.0, 5.0, 0.1);
+    trailFolder.open();
+
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
     //     gpu.device,
@@ -181,6 +195,15 @@ async function main() {
     // JFA pass.
     const jfaPass = new JumpFloodAlgorithm(gpu.device);
     let finalTexture = jfaPass.getFinalTexture(vectorTextureA, vectorTextureB, WIDTH, HEIGHT);
+
+    // Set up trail pass.
+    const trailPass = new TrailPass(
+        gpu.device,
+        gpu.format,
+        WIDTH,
+        HEIGHT,
+        trailParams
+    );
 
     // Debug fullscreen pass to verify that binary texture working.
     // const binaryDebugPass = new FullscreenVideoPass(
@@ -249,7 +272,14 @@ async function main() {
             if (renderParams.mode === "Default Fluid") {
                 particleSystem.render(gpu.device, view);
             } else if (renderParams.mode === "Smoke") {
-                particleSystem.renderSmoke(gpu.device, view, finalTexture); // Take in jfaTexture val, i.e. finalTexture.
+                if (trailParams.enabled) {
+                    trailPass.fade(gpu.device); // Fade existing trails.
+
+                    particleSystem.renderSmoke(gpu.device, trailPass.trailTextureView, finalTexture, "trail"); // Take in jfaTexture val, i.e. finalTexture.
+                    trailPass.blit(gpu.device, gpu.context);
+                } else {
+                    particleSystem.renderSmoke(gpu.device, view, finalTexture); // Take in jfaTexture val, i.e. finalTexture.
+                }
             }
             // particleSystem.render(gpu.device, view);
             // binaryDebugPass.render(gpu.device, gpu.context);

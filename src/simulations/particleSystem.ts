@@ -42,6 +42,7 @@ export class ParticleSystem {
 
     // For smoke rendering.
     smokePipeline: GPURenderPipeline;
+    smokeTrailPipeline: GPURenderPipeline;
     smokeBindGroup: GPUBindGroup;
 
     private numParticles: number;
@@ -218,8 +219,7 @@ export class ParticleSystem {
             bindGroupLayouts: [smokeBindGroupLayout],
         });
 
-        // Le smoke rendering pipeline.
-        this.smokePipeline = device.createRenderPipeline({
+        const createSmokePipeline = (targetFormat: GPUTextureFormat) => device.createRenderPipeline({
             layout: smokePipelineLayout,
             vertex: {
                 module: device.createShaderModule({ code: smokeVertShader }),
@@ -230,7 +230,7 @@ export class ParticleSystem {
                 entryPoint: "main",
                 targets: [
                     {
-                        format: format,
+                        format: targetFormat,
 
                         blend: {
                             color: {
@@ -252,6 +252,10 @@ export class ParticleSystem {
                 topology: "triangle-list",  // was "point-list"
             },
         });
+
+        // Le smoke rendering pipeline.
+        this.smokePipeline = createSmokePipeline(format);
+        this.smokeTrailPipeline = createSmokePipeline("rgba8unorm");
 
         // Initialize particles.
         const initialData = new Float32Array(numParticles * 4); // pos.xy, vel.xy
@@ -432,7 +436,7 @@ export class ParticleSystem {
     }
 
     // Smoke rendering.
-    renderSmoke(device: GPUDevice, view: GPUTextureView, jfaTexture: GPUTexture) {
+    renderSmoke(device: GPUDevice, view: GPUTextureView, jfaTexture: GPUTexture, target: "canvas" | "trail" = "canvas") {
         // TODO: Set up smoke rendering pipeline.
         const encoder = device.createCommandEncoder();
         const textureView = view;
@@ -458,7 +462,7 @@ export class ParticleSystem {
             ],
         });
 
-        renderPass.setPipeline(this.smokePipeline);
+        renderPass.setPipeline(target === "trail" ? this.smokeTrailPipeline : this.smokePipeline);
         renderPass.setBindGroup(0, this.smokeBindGroup);
         renderPass.draw(this.numParticles * 6, 1, 0, 0);
 
