@@ -58,8 +58,9 @@ async function main() {
     };
 
     const particleParams = {
-        numParts: NUM_PARTICLES,
-        advectionGain: 0.003
+        numParticles: NUM_PARTICLES,
+        velocityScale: 0.003,
+        colour: [255, 255, 255] as [number, number, number]
     };
 
     // Smoke params.
@@ -107,16 +108,20 @@ async function main() {
     fluidFolder.open();
 
     const particleFolder = gui.addFolder("Particle System");
-    particleFolder.add(particleParams, "numParts", 1000, 50000, 1000)
+    particleFolder.add(particleParams, "numParticles", 1000, 50000, 1000)
         .onFinishChange((value: number) => {
             particleSystem.setParticleCount(
                 gpu.device,
                 value,
             );
         });
-    particleFolder.add(particleParams, "advectionGain", 0.0, 0.1, 0.001)
+    particleFolder.add(particleParams, "velocityScale", 0.0, 0.1, 0.001)
         .onFinishChange((value: number) => {
             particleSystem.setAdvectionGain(value);
+        });
+    particleFolder.addColor(particleParams, "colour")
+        .onFinishChange((value: [number, number, number]) => {
+            particleSystem.setColour(value);
         });
     particleFolder.open();
 
@@ -238,7 +243,7 @@ async function main() {
 
     // Particle system.
     const particleSystem = new ParticleSystem(
-        gpu.device, NUM_PARTICLES, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, finalTexture, gpu.format, fluidParams, smokeParams, randomColOptions, particleParams.advectionGain
+        gpu.device, velocityGrid.getVelocityTexture(), thresholdPass.binaryTexture, finalTexture, gpu.format, fluidParams, smokeParams, randomColOptions, particleParams
     );
 
     // In frame loop, update threshold pass as well.

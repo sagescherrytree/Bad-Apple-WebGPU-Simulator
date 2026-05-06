@@ -13,7 +13,8 @@ struct FluidSimParams {
 };
 
 struct ParticleParams {
-    velocityScale: f32
+    velocityScale: f32,
+    colour: vec3<f32>,
 };
 
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;

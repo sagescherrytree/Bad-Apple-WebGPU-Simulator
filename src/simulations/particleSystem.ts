@@ -34,7 +34,9 @@ interface TrailShapeParams {
 
 // Particle parameters.
 export interface ParticleParams {
+    numParticles: number;
     velocityScale: number;
+    colour: [number, number, number];
 }
 
 export class ParticleSystem {
@@ -53,6 +55,7 @@ export class ParticleSystem {
 
     private numParticles: number;
     private velocityScale: number;
+    private colour: [number, number, number];
 
     private particleParamsBuffer: GPUBuffer;
 
@@ -71,9 +74,10 @@ export class ParticleSystem {
 
     private trailShapeParamsBuffer: GPUBuffer;
 
-    constructor(device: GPUDevice, numParticles: number, forceTexture: GPUTexture, binaryTexture: GPUTexture, jfaTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, randomColOptions: RandomColOptions, advectionGain: number) {
-        this.numParticles = numParticles;
-        this.velocityScale = advectionGain;
+    constructor(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture, jfaTexture: GPUTexture, format: GPUTextureFormat, fluidParams: FluidParams, smokeParams: SmokeParams, randomColOptions: RandomColOptions, partParams: ParticleParams) {
+        this.numParticles = partParams.numParticles;
+        this.velocityScale = partParams.velocityScale;
+        this.colour = partParams.colour;
 
         this.fluidParams = fluidParams || {
             dt: 0.016,
@@ -100,7 +104,7 @@ export class ParticleSystem {
         // Set up particles buffer.
         this.particlesBuffer = device.createBuffer({
             label: "ParticlesBuffer",
-            size: numParticles * 4 * 4, // 2 vec2<f32> per particle.
+            size: this.numParticles * 4 * 4, // 2 vec2<f32> per particle.
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC | GPUBufferUsage.VERTEX,
         });
 
@@ -131,7 +135,7 @@ export class ParticleSystem {
 
         this.particleParamsBuffer = device.createBuffer({
             label: "ParticleParamsBuffer",
-            size: 16, // 1 float value (velocityScale).
+            size: 16 * 4, // 1 float value (velocityScale) + 3 floats for colour.
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         })
 
@@ -162,6 +166,11 @@ export class ParticleSystem {
                     visibility: GPUShaderStage.VERTEX,
                     buffer: { type: "read-only-storage" },
                 },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { type: "uniform" },
+                },
             ],
         });
 
@@ -169,6 +178,7 @@ export class ParticleSystem {
             layout: renderBindGroupLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.particleParamsBuffer } },
             ],
         });
 
@@ -278,8 +288,8 @@ export class ParticleSystem {
         this.smokeTrailPipeline = createSmokePipeline("rgba8unorm");
 
         // Initialize particles.
-        const initialData = new Float32Array(numParticles * 4); // pos.xy, vel.xy
-        for (let i = 0; i < numParticles; i++) {
+        const initialData = new Float32Array(this.numParticles * 4); // pos.xy, vel.xy
+        for (let i = 0; i < this.numParticles; i++) {
             initialData[i * 4 + 0] = Math.random(); // pos.x [0,1]
             initialData[i * 4 + 1] = Math.random(); // pos.y [0,1]
             initialData[i * 4 + 2] = 0; // vel.x
@@ -298,8 +308,11 @@ export class ParticleSystem {
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 
-        const particleParamsData = new Float32Array(4);
+        const particleParamsData = new Float32Array(8);
         particleParamsData[0] = this.velocityScale;
+        particleParamsData[4] = this.colour[0] / 255.0;
+        particleParamsData[5] = this.colour[1] / 255.0;
+        particleParamsData[6] = this.colour[2] / 255.0;
         device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
 
         // Initialize smoke render params buffer.
@@ -371,6 +384,11 @@ export class ParticleSystem {
         this.velocityScale = gain;
     }
 
+    // Set particle colour.
+    setColour(colour: [number, number, number]) {
+        this.colour = colour;
+    }
+
     step(device: GPUDevice, forceTexture: GPUTexture, binaryTexture: GPUTexture) {
         // Rewrite updated values for fluid sim params buffer.
         const fluidSimParams = new Float32Array(5);
@@ -383,8 +401,11 @@ export class ParticleSystem {
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 
-        const particleParamsData = new Float32Array(4);
+        const particleParamsData = new Float32Array(8);
         particleParamsData[0] = this.velocityScale;
+        particleParamsData[4] = this.colour[0] / 255.0;
+        particleParamsData[5] = this.colour[1] / 255.0;
+        particleParamsData[6] = this.colour[2] / 255.0;
         device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
 
         // Rewrite smoke render params buffer.
@@ -430,6 +451,7 @@ export class ParticleSystem {
             layout: this.renderPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.particleParamsBuffer } },
             ],
         });
 
