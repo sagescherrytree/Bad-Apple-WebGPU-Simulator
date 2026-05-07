@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
+/videos
+
 badApple.mp4
 badAppleAudio.mp3
