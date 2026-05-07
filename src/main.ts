@@ -15,6 +15,7 @@ import { ParticleRenderMode, ParticleSystem } from './simulations/particleSystem
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
 import { TrailPass } from './render/trailPass.js';
+import { BlobCompositePass } from './render/blobComp.js';
 
 // Rendering pipeline:
 // video -> videoThresholdPass (binaryTexture) -> fullScreenBinaryPass -> screen o/p.
@@ -88,6 +89,14 @@ async function main() {
         width: 0.004,
     };
 
+    const blobParams = {
+        densityScale: 1.0,
+        densityPower: 1.0,
+        threshold: 0.35,
+        softness: 0.05,
+        intensity: 1.0,
+    };
+
     // Render modes.
     const renderParams = {
         mode: "Default Fluid"
@@ -152,6 +161,14 @@ async function main() {
     trailFolder.add(trailParams, "width", 0.001, 0.05, 0.001);
     trailFolder.open();
 
+    const blobFolder = gui.addFolder("Blob Rendering");
+    blobFolder.add(blobParams, "densityScale", 0.0, 10.0, 0.01);
+    blobFolder.add(blobParams, "densityPower", 0.1, 8.0, 0.01);
+    blobFolder.add(blobParams, "threshold", 0.0, 5.0, 0.01);
+    blobFolder.add(blobParams, "softness", 0.001, 1.0, 0.001);
+    blobFolder.add(blobParams, "intensity", 0.0, 5.0, 0.01);
+    blobFolder.open();
+
     // Take in the video!
     // const videoPass = new FullscreenVideoPass(
     //     gpu.device,
@@ -208,6 +225,23 @@ async function main() {
         WIDTH,
         HEIGHT,
         trailParams
+    );
+
+    // Blob texture.
+    const blobDensityTexture = gpu.device.createTexture({
+        size: [WIDTH, HEIGHT],
+
+        format: "rgba16float",
+
+        usage:
+            GPUTextureUsage.RENDER_ATTACHMENT |
+            GPUTextureUsage.TEXTURE_BINDING,
+    });
+    const blobDensityTextureView = blobDensityTexture.createView();
+    const blobCompositePass = new BlobCompositePass(
+        gpu.device,
+        gpu.format,
+        blobDensityTextureView,
     );
 
     // Debug fullscreen pass to verify that binary texture working.
@@ -278,7 +312,13 @@ async function main() {
                 particleSystem.render(gpu.device, view, ParticleRenderMode.Default);
             }
             else if (renderParams.mode === "Blobs") {
-                particleSystem.render(gpu.device, view, ParticleRenderMode.Blobs);
+                particleSystem.renderBlobDensity(
+                    gpu.device,
+                    blobDensityTextureView,
+                    blobParams.densityPower,
+                    blobParams.densityScale,
+                );
+                blobCompositePass.render(gpu.device, view, particleParams.colour, blobParams);
             } else if (renderParams.mode === "Smoke") {
                 if (trailParams.enabled) {
                     trailPass.fade(gpu.device); // Fade existing trails.

@@ -3,6 +3,7 @@ import particleVertShader from "../shaders/particles.vert.wgsl?raw";
 import particleFragShader from "../shaders/particles.frag.wgsl?raw";
 import smokeVertShader from "../shaders/smokeParticles.vert.wgsl?raw";
 import smokeFragShader from "../shaders/smokeParticles.frag.wgsl?raw";
+import blobDensityFragShader from "../shaders/blobs/blobDensity.frag.wgsl?raw";
 
 export enum ParticleRenderMode {
     Default = 0,
@@ -57,6 +58,10 @@ export class ParticleSystem {
     smokePipeline: GPURenderPipeline;
     smokeTrailPipeline: GPURenderPipeline;
     smokeBindGroup: GPUBindGroup;
+
+    // For rendering blobs.
+    blobPipeline: GPURenderPipeline;
+    blobBindGroup: GPUBindGroup;
 
     private numParticles: number;
     private velocityScale: number;
@@ -208,6 +213,53 @@ export class ParticleSystem {
             },
         });
 
+        // Blob rendering pipeline.
+        const blobBindGroupLayout = device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
+                { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
+            ],
+        });
+
+        this.blobBindGroup = device.createBindGroup({
+            layout: blobBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.particleParamsBuffer } },
+            ],
+        });
+
+        this.blobPipeline = device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [blobBindGroupLayout] }),
+            vertex: {
+                module: device.createShaderModule({ code: particleVertShader }),
+                entryPoint: "main",
+            },
+            fragment: {
+                module: device.createShaderModule({ code: blobDensityFragShader }),
+                entryPoint: "main",
+                targets: [{
+                    format: "rgba16float",
+
+                    blend: {
+                        color: {
+                            srcFactor: "one",
+                            dstFactor: "one",
+                            operation: "add",
+                        },
+                        alpha: {
+                            srcFactor: "one",
+                            dstFactor: "one",
+                            operation: "add",
+                        },
+                    },
+                }],
+            },
+            primitive: {
+                topology: "triangle-list",  // was "point-list"
+            },
+        });
+
         // Smoke rendering pipeline.
         const smokeBindGroupLayout = device.createBindGroupLayout({
             entries: [
@@ -351,13 +403,18 @@ export class ParticleSystem {
         });
     }
 
-    private writeParticleParams(device: GPUDevice, mode: ParticleRenderMode) {
+    private writeParticleParams(
+        device: GPUDevice,
+        mode: ParticleRenderMode,
+        densityPower = 1.0,
+        alphaScale = 1.0,
+    ) {
         const particleParamsData = new Float32Array(8);
 
         particleParamsData[0] = this.velocityScale;
         particleParamsData[1] = mode;
-        particleParamsData[2] = 1.0; // densityPower
-        particleParamsData[3] = 1.0; // alphaScale
+        particleParamsData[2] = densityPower;
+        particleParamsData[3] = alphaScale;
 
         particleParamsData[4] = this.colour[0] / 255.0;
         particleParamsData[5] = this.colour[1] / 255.0;
@@ -468,6 +525,14 @@ export class ParticleSystem {
             ],
         });
 
+        this.blobBindGroup = device.createBindGroup({
+            layout: this.blobPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.particlesBuffer } },
+                { binding: 1, resource: { buffer: this.particleParamsBuffer } },
+            ],
+        });
+
         const encoder = device.createCommandEncoder();
         const pass = encoder.beginComputePass();
         pass.setPipeline(this.particlesPipeline);
@@ -500,6 +565,35 @@ export class ParticleSystem {
 
         renderPass.setPipeline(this.renderPipeline);
         renderPass.setBindGroup(0, this.renderBindGroup);
+        renderPass.draw(this.numParticles * 6, 1, 0, 0);
+
+        renderPass.end();
+        device.queue.submit([encoder.finish()]);
+    }
+
+    renderBlobDensity(
+        device: GPUDevice,
+        view: GPUTextureView,
+        densityPower = 1.0,
+        densityScale = 1.0,
+    ) {
+        const encoder = device.createCommandEncoder();
+
+        this.writeParticleParams(device, ParticleRenderMode.Blobs, densityPower, densityScale);
+
+        const renderPass = encoder.beginRenderPass({
+            colorAttachments: [
+                {
+                    view,
+                    clearValue: { r: 0, g: 0, b: 0, a: 0 },
+                    loadOp: "clear",
+                    storeOp: "store",
+                },
+            ],
+        });
+
+        renderPass.setPipeline(this.blobPipeline);
+        renderPass.setBindGroup(0, this.blobBindGroup);
         renderPass.draw(this.numParticles * 6, 1, 0, 0);
 
         renderPass.end();
