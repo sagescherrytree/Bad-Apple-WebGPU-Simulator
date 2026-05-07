@@ -8,6 +8,7 @@ struct Particle {
 struct VSOut {
     @builtin(position) pos: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) uv: vec2<f32>,
 };
 
 // 6 vertices per particle (2 triangles = 1 quad)
@@ -29,10 +30,21 @@ fn main(@builtin(vertex_index) vertIndex: u32) -> VSOut {
         vec2<f32>( size,  size),
     );
 
+    var uvs = array<vec2<f32>, 6>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(0.0, 1.0),
+
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 0.0),
+        vec2<f32>(1.0, 1.0),
+    );
+
     let ndc = vec2<f32>(particle.pos.x * 2.0 - 1.0, (1.0 - particle.pos.y) * 2.0 - 1.0);
 
     var out: VSOut;
     out.pos   = vec4<f32>(ndc + corners[cornerIndex], 0.0, 1.0);
-    out.color = vec4<f32>(1.0, 0.9, 0.8, 1.0); // warm white
+    out.color = vec4<f32>(1.0, 0.9, 0.8, 1.0);
+    out.uv    = uvs[cornerIndex];
     return out;
 }

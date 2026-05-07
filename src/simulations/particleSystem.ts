@@ -4,6 +4,11 @@ import particleFragShader from "../shaders/particles.frag.wgsl?raw";
 import smokeVertShader from "../shaders/smokeParticles.vert.wgsl?raw";
 import smokeFragShader from "../shaders/smokeParticles.frag.wgsl?raw";
 
+export enum ParticleRenderMode {
+    Default = 0,
+    Blobs = 1,
+}
+
 interface FluidParams {
     dt: number;
     forceScale: number;
@@ -308,12 +313,8 @@ export class ParticleSystem {
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 
-        const particleParamsData = new Float32Array(8);
-        particleParamsData[0] = this.velocityScale;
-        particleParamsData[4] = this.colour[0] / 255.0;
-        particleParamsData[5] = this.colour[1] / 255.0;
-        particleParamsData[6] = this.colour[2] / 255.0;
-        device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
+        // Package into writeParticleParams.
+        this.writeParticleParams(device, ParticleRenderMode.Default);
 
         // Initialize smoke render params buffer.
         const smokeParamsData = new Float32Array(8);
@@ -349,6 +350,22 @@ export class ParticleSystem {
             enabled: false,
         });
     }
+
+    private writeParticleParams(device: GPUDevice, mode: ParticleRenderMode) {
+        const particleParamsData = new Float32Array(8);
+
+        particleParamsData[0] = this.velocityScale;
+        particleParamsData[1] = mode;
+        particleParamsData[2] = 1.0; // densityPower
+        particleParamsData[3] = 1.0; // alphaScale
+
+        particleParamsData[4] = this.colour[0] / 255.0;
+        particleParamsData[5] = this.colour[1] / 255.0;
+        particleParamsData[6] = this.colour[2] / 255.0;
+
+        device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
+    }
+
 
     private writeTrailShapeParams(device: GPUDevice, params: TrailShapeParams) {
         const trailShapeData = new Float32Array(4);
@@ -401,12 +418,8 @@ export class ParticleSystem {
 
         device.queue.writeBuffer(this.fluidParamsBuffer, 0, fluidSimParams);
 
-        const particleParamsData = new Float32Array(8);
-        particleParamsData[0] = this.velocityScale;
-        particleParamsData[4] = this.colour[0] / 255.0;
-        particleParamsData[5] = this.colour[1] / 255.0;
-        particleParamsData[6] = this.colour[2] / 255.0;
-        device.queue.writeBuffer(this.particleParamsBuffer, 0, particleParamsData);
+        // Call writeParticleParams.
+        this.writeParticleParams(device, ParticleRenderMode.Default);
 
         // Rewrite smoke render params buffer.
         const smokeParamsData = new Float32Array(8);
@@ -468,9 +481,11 @@ export class ParticleSystem {
         device.queue.submit([encoder.finish()]);
     }
 
-    render(device: GPUDevice, view: GPUTextureView) {
+    render(device: GPUDevice, view: GPUTextureView, mode: ParticleRenderMode = ParticleRenderMode.Default) {
         const encoder = device.createCommandEncoder();
         const textureView = view;
+
+        this.writeParticleParams(device, mode);
 
         const renderPass = encoder.beginRenderPass({
             colorAttachments: [

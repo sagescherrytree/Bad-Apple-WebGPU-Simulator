@@ -11,7 +11,7 @@ import { JumpFloodAlgorithm } from './jfa/jfaPass.js';
 import { VelocityGrid } from './simulations/fluid/velocityGrid.js';
 import { JfaToForcePass } from './simulations/fluid/jfaToFluid.js';
 //import { VelocityDebugPass } from './simulations/fluid/velocityGrid.js';
-import { ParticleSystem } from './simulations/particleSystem.js';
+import { ParticleRenderMode, ParticleSystem } from './simulations/particleSystem.js';
 // import { ClearPass } from "./render/clearPass";
 // import { FullscreenVideoPass } from './render/fullScreenVideoPass.js';
 import { TrailPass } from './render/trailPass.js';
@@ -96,7 +96,7 @@ async function main() {
     const gui = new GUI();
 
     const renderModeFolder = gui.addFolder("Render Mode");
-    renderModeFolder.add(renderParams, "mode", ["Default Fluid", "Smoke"]).name("Rendering Mode");
+    renderModeFolder.add(renderParams, "mode", ["Default Fluid", "Blobs", "Smoke"]).name("Rendering Mode");
 
     renderModeFolder.open();
 
@@ -275,7 +275,10 @@ async function main() {
             //vectorFieldDebugPass.render(gpu.device, gpu.context, canvasWidth, canvasHeight);
             //velocityDebugPass.render(gpu.device, gpu.context, velocityGrid.getVelocityTexture());
             if (renderParams.mode === "Default Fluid") {
-                particleSystem.render(gpu.device, view);
+                particleSystem.render(gpu.device, view, ParticleRenderMode.Default);
+            }
+            else if (renderParams.mode === "Blobs") {
+                particleSystem.render(gpu.device, view, ParticleRenderMode.Blobs);
             } else if (renderParams.mode === "Smoke") {
                 if (trailParams.enabled) {
                     trailPass.fade(gpu.device); // Fade existing trails.
